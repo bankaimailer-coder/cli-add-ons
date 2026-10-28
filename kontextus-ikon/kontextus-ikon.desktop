@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Claude kontextus-ikon
+Comment=Az utoljára aktív Claude Code session kontextushasználata a felső sávban
+Exec=python3 /home/bfuzzee/cli-extensions/kontextus-ikon/kontextus_ikon.py
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=5
+NoDisplay=true

@@ -1,0 +1,6 @@
+{
+  "uuid": "kontextus@kontextus-ikon",
+  "name": "Kontextus-ikon",
+  "description": "Claude Code kontextusmérők a felső sáv bal oldalán, memória-chip a rendszerikonok mellett, és ablakugrás a kontextus_ikon.py kérésére.",
+  "shell-version": ["50"]
+}
