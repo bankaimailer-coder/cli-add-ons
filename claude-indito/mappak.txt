@@ -1,0 +1,6 @@
+# A Claude indító választóablakában megjelenő mappák, soronként egy: Név | mappa
+# A ~ a saját mappádat jelenti. A #-sal kezdődő és az üres sorok nem számítanak.
+NEMESVENTILATOR | ~/projects/Soborbo/nemesventilatorhaz
+CLI EXTENSIONS | ~/projects/cli-extensions
+Claude Code Setup | ~/projects/claude-code-setup
+Sys Recovery & Repair | ~/projects/System-Recovery-and-Repair
