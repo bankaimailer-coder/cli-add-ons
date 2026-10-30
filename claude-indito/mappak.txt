@@ -1,5 +1,44 @@
 # A Claude indító választóablakában megjelenő mappák, soronként egy: Név | mappa
 # A ~ a saját mappádat jelenti. A #-sal kezdődő és az üres sorok nem számítanak.
+# A nem létező mappákat az indító kihagyja, így egy fájl több gépen is működik.
+
+# bfwork gép (~/work)
+CRM REBUILD | ~/work/soborbo_crm_rebuild
+CLI ADD-ONS | ~/work/cli-add-ons
+SOBORBO CRM | ~/work/Soborbo/soborbo-crm
+NEMESVENTILATOR | ~/work/Soborbo/nemesventilatorhaz
+EMAGINE WEBAPP V2 | ~/work/emagine-webapp-V2
+BUDAIGRAPPLING | ~/work/budaigrappling
+Claude Code Setup | ~/work/claude-code-setup
+FUTUREBIKE CRM | ~/work/futurebike-crm
+
+# további ~/work repók; a sor elejéről a # törlésével kerülnek be
+# CRM LAB | ~/work/soborbo_crm_rebuild/crm-lab
+# TRAPEZLEMEZES WEBSHOP | ~/work/Soborbo/trapezlemezes-webshop
+# OLCSOKONTENERHAZ | ~/work/Soborbo/olcsokontenerhaz
+# SZELLOZTESSOKOSAN | ~/work/Soborbo/szelloztessokosan
+# PAINLESSREMOVALS | ~/work/Soborbo/painlessremovals
+# BEFILO | ~/work/Soborbo/befilo
+# LEADGEN TEMPLATE | ~/work/Soborbo/leadgen-template-site
+# PRESURE TESZTER | ~/work/presure-teszter
+# CT NEW | ~/work/ct-new
+# AI UNI JEGYZETEK | ~/work/ai-uni-jegyzetek
+# CODING TUTOR | ~/work/coding-tutor-app
+# VTT | ~/work/vtt
+# FOUNDRY VTT CAMPAIGN | ~/work/foundry-vtt-campaign
+# ACADEMY BOOKING | ~/work/ACADEMY-BOOKING
+# DIGITAL ART GALERY | ~/work/digital-art-galery
+# FOCUS ON QUALITY | ~/work/focus-on-quality
+# BJJ MIND PALACE | ~/work/BJJ-Mind-Palace
+# CLEANING HEROES | ~/work/cleaning-heroes
+# BESPOKE JOINERY | ~/work/the-bespoke-joinery
+# REYENS NOVEL | ~/work/wolfsrights-writer/reyens_novel
+# FAZISYS | ~/work/FaziSys
+# FREEFLOW | ~/work/FREEFLOW
+# E-MAGINE | ~/work/e-magine
+# FREEFLOWBJJ WEB APP | ~/work/freeflowbjj-web-app
+
+# másik gép (~/projects)
 NEMESVENTILATOR | ~/projects/Soborbo/nemesventilatorhaz
 CLI EXTENSIONS | ~/projects/cli-extensions
 Claude Code Setup | ~/projects/claude-code-setup
