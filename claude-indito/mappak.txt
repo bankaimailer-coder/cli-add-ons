@@ -2,6 +2,19 @@
 # A ~ a saját mappádat jelenti. A #-sal kezdődő és az üres sorok nem számítanak.
 # A nem létező mappákat az indító kihagyja, így egy fájl több gépen is működik.
 
+# bfuzzee gép (~/AI PROJECTS)
+CLI ADD-ONS | ~/AI PROJECTS/cli-add-ons
+FREEFLOW | ~/AI PROJECTS/FREEFLOW
+FREEFLOWBJJ WEB APP | ~/AI PROJECTS/freeflowbjj-web-app
+ACADEMY BOOKING | ~/AI PROJECTS/ACADEMY-BOOKING
+BJJ MIND PALACE | ~/AI PROJECTS/BJJ-Mind-Palace
+AI UNI JEGYZETEK | ~/AI PROJECTS/ai-uni-jegyzetek
+CODING TUTOR | ~/AI PROJECTS/coding-tutor-app
+CT NEW | ~/AI PROJECTS/ct-new
+DIGITAL ART GALERY | ~/AI PROJECTS/digital-art-galery
+FOUNDRY VTT CAMPAIGN | ~/AI PROJECTS/foundry-vtt-campaign
+VTT | ~/AI PROJECTS/vtt
+
 # bfwork gép (~/work)
 CRM REBUILD | ~/work/soborbo_crm_rebuild
 CLI ADD-ONS | ~/work/cli-add-ons
