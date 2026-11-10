@@ -43,3 +43,4 @@ NEMESVENTILATOR | ~/projects/Soborbo/nemesventilatorhaz
 CLI EXTENSIONS | ~/projects/cli-extensions
 Claude Code Setup | ~/projects/claude-code-setup
 Sys Recovery & Repair | ~/projects/System-Recovery-and-Repair
+Soborbo CRM | ~/projects/Soborbo CRM/soborbo-leads

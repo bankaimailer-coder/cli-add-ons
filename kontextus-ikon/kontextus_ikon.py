@@ -31,6 +31,7 @@ SESSIONS_DIR = os.path.expanduser("~/.claude/sessions")
 PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
 TAIL_CHUNK = 256 * 1024    # ennyit olvas egyszerre a fájl végéről
 TAIL_MAX = 16 * 1024 * 1024  # legfeljebb ennyit olvas visszafelé
+SUB_STALE_SEC = 600        # ennyi tétlenség után egy le nem zárt subagentet már nem tekint futónak
 
 COLORS = {  # (R, G, B)
     "green": (0x33, 0xD1, 0x7A),
@@ -47,8 +48,9 @@ BUS_NAME = "hu.bfuzzee.KontextusIkon"
 # ---- Adat ----------------------------------------------------------------
 
 
-def last_assistant_usage(path):
-    """A fájl végéről visszafelé olvasva az utolsó fő-szálbeli assistant-sor."""
+def last_assistant_usage(path, sidechain=False):
+    """A fájl végéről visszafelé olvasva az utolsó fő-szálbeli assistant-sor
+    (subagent-transcriptben, sidechain=True mellett, a subagent saját sora)."""
     with open(path, "rb") as f:
         f.seek(0, os.SEEK_END)
         pos = f.tell()
@@ -71,7 +73,7 @@ def last_assistant_usage(path):
                     d = json.loads(raw)
                 except ValueError:
                     continue
-                if d.get("type") != "assistant" or d.get("isSidechain"):
+                if d.get("type") != "assistant" or (d.get("isSidechain") and not sidechain):
                     continue
                 msg = d.get("message") or {}
                 u = msg.get("usage")
@@ -116,6 +118,14 @@ class UsageCache:
         self.paths = {}
         self.vals = {}
 
+    def tokens(self, path, sidechain=False):
+        s = os.stat(path)
+        key = (s.st_mtime, s.st_size)
+        cached = self.vals.get(path)
+        if not cached or cached[0] != key:
+            cached = self.vals[path] = (key, last_assistant_usage(path, sidechain))
+        return cached[1], s.st_mtime
+
     def get(self, sid):
         path = self.paths.get(sid)
         if not path or not os.path.exists(path):
@@ -123,12 +133,32 @@ class UsageCache:
             if not hits:
                 return None, None
             path = self.paths[sid] = hits[0]
-        s = os.stat(path)
-        key = (s.st_mtime, s.st_size)
-        cached = self.vals.get(path)
-        if not cached or cached[0] != key:
-            cached = self.vals[path] = (key, last_assistant_usage(path))
-        return cached[1], s.st_mtime
+        return self.tokens(path)
+
+    def subagents(self, sid):
+        """A session még futó subagentjei: [(tokens, típus, leírás), ...], a legnagyobb elöl.
+        Futó: a .meta.json-ban nincs "finished": true, és a transcriptje SUB_STALE_SEC-en belül változott."""
+        path = self.paths.get(sid)
+        if not path:
+            return []
+        out = []
+        now = time.time()
+        for sub in glob.glob(os.path.join(path[:-6], "subagents", "agent-*.jsonl")):
+            try:
+                with open(sub[:-6] + ".meta.json") as f:
+                    meta = json.load(f)
+            except (OSError, ValueError):
+                meta = {}
+            if meta.get("finished"):
+                continue
+            try:
+                tokens, mtime = self.tokens(sub, sidechain=True)
+            except OSError:
+                continue
+            if tokens is None or now - mtime > SUB_STALE_SEC:
+                continue
+            out.append((tokens, meta.get("agentType") or "subagent", meta.get("description") or ""))
+        return sorted(out, reverse=True)
 
 
 def color_for(tokens, repo):
@@ -288,7 +318,7 @@ STATUS_HU = {"busy": "dolgozik", "idle": "vár", "shell": "shell"}
 
 def session_lines(data):
     """A menü tájékoztató sorai egy sessionhöz."""
-    tokens, repo, sid, mtime, status, name = data
+    tokens, repo, sid, mtime, status, name, subs = data
     items = [f"Repó: {repo}", f"Session: {sid[:8]}"]
     if name:
         items.append(f"Név: {name}")
@@ -300,12 +330,16 @@ def session_lines(data):
         items.append("Frissült: " + time.strftime(fmt, t))
     items.append("Kontextus: " + ("még nincs adat" if tokens is None
                                   else fmt_tokens(tokens) + " token"))
+    if subs:
+        items.append(f"Futó subagentek ({len(subs)}):")
+        for t, kind, desc in subs:
+            items.append(f"  {fmt_k(t)}  {kind}" + (f": {desc}" if desc else ""))
     return items
 
 
 def panel_row(key, data):
     """Egy session a GNOME-bővítménynek (JSON-sor)."""
-    tokens = data[0]
+    tokens, subs = data[0], data[6]
     return {
         "key": key,
         "label": "–" if tokens is None else fmt_k(tokens),
@@ -313,6 +347,11 @@ def panel_row(key, data):
         "color": list(COLORS[color_for(tokens, data[1])]),
         "lines": session_lines(data),
         "jump": True,
+        # a legnagyobb futó subagent; a bővítmény kisebb körívként rajzolja
+        "sub": None if not subs else {
+            "frac": round(min(1.0, subs[0][0] / GAUGE_MAX), 2),
+            "color": list(COLORS[color_for(subs[0][0], data[1])]),
+        },
     }
 
 
@@ -486,7 +525,8 @@ def collect(cache):
         tokens, mtime = cache.get(sid)
         cwd = d.get("cwd") or ""
         repo = os.path.basename(cwd.rstrip("/")) or "?"
-        out.append((pid, (tokens, repo, sid, mtime, d.get("status"), d.get("name"))))
+        subs = cache.subagents(sid) if tokens is not None else []
+        out.append((pid, (tokens, repo, sid, mtime, d.get("status"), d.get("name"), subs)))
     return out
 
 
@@ -656,9 +696,11 @@ def main():
         rows = collect(UsageCache())
         if not rows:
             print("– gray (nincs nyitott Claude Code terminál)")
-        for pid, (tokens, repo, sid, mtime, status, name) in rows:
+        for pid, (tokens, repo, sid, mtime, status, name, subs) in rows:
             print(pid, "–" if tokens is None else fmt_k(tokens), color_for(tokens, repo),
                   tokens, repo, sid, status, name)
+            for t, kind, desc in subs:
+                print("   subagent", fmt_k(t), color_for(t, repo), kind, desc)
         return
     conn = Gio.bus_get_sync(Gio.BusType.SESSION, None)
     # egy példány: ha már fut, kilép

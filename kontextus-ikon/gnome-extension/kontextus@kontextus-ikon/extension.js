@@ -18,6 +18,7 @@ import {drawGauge} from './gauge.js';
 const MEM_POLL_SEC = 3;
 const CHIP_W = 22, CHIP_H = 16;   // logikai pixel
 const GAUGE_SIZE = 16;
+const SUB_GAUGE_SIZE = 11;      // a legnagyobb futó subagent kisebb köríve
 
 // a Python-folyamat (kontextus_ikon.py)
 const APP_BUS = 'hu.bfuzzee.KontextusIkon';
@@ -152,8 +153,23 @@ class ContextIndicator extends PanelMenu.Button {
             cr.$dispose();
         });
         this._label = new St.Label({y_align: Clutter.ActorAlign.CENTER});
+        this._subArea = new St.DrawingArea({
+            width: SUB_GAUGE_SIZE * scale,
+            height: SUB_GAUGE_SIZE * scale,
+            y_align: Clutter.ActorAlign.CENTER,
+            style: 'margin-left: 4px;',
+            visible: false,
+        });
+        this._subArea.connect('repaint', area => {
+            const cr = area.get_context();
+            const [w] = area.get_surface_size();
+            if (this._data?.sub)
+                drawGauge(cr, w, this._data.sub.frac, this._data.sub.color.map(c => c / 255));
+            cr.$dispose();
+        });
         box.add_child(this._area);
         box.add_child(this._label);
+        box.add_child(this._subArea);
         this.add_child(box);
     }
 
@@ -163,6 +179,9 @@ class ContextIndicator extends PanelMenu.Button {
         if (!old || old.frac !== data.frac || String(old.color) !== String(data.color))
             this._area.queue_repaint();
         this._label.text = data.label;
+        this._subArea.visible = !!data.sub;
+        if (JSON.stringify(old?.sub ?? null) !== JSON.stringify(data.sub ?? null))
+            this._subArea.queue_repaint();
         if (old && JSON.stringify(old.lines) === JSON.stringify(data.lines) && old.jump === data.jump)
             return;
         this.menu.removeAll();

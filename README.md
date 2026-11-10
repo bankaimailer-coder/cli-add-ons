@@ -10,3 +10,5 @@ Telepítés: lásd [`kontextus-ikon/README.md`](kontextus-ikon/README.md#telepí
 
 - [`claude-indito`](claude-indito/): dokkba tűzött ikon, amely választóablakból indítja a Claude Code-ot
   a kiválasztott munkamappában (új beszélgetés vagy folytatás).
+- [`kontextus-horog`](kontextus-horog/): Claude Code hook, amely méri a kontextust (alügynökökben is), és 500k-nál
+  soft stopot, 600k-nál erős stopot kér; a telepítője minden gépen bejegyzi.

@@ -13,8 +13,8 @@ Két része van:
 
 ## Telepítés
 
-    git clone https://github.com/bankaimailer-coder/cli-add-ons.git ~/cli-extensions
-    sh ~/cli-extensions/kontextus-ikon/install.sh
+    git clone https://github.com/bankaimailer-coder/cli-add-ons.git ~/projects/cli-extensions
+    sh ~/projects/cli-extensions/kontextus-ikon/install.sh
 
 Utána egyszer ki kell jelentkezni és vissza (a GNOME-bővítmény csak bejelentkezéskor töltődik be).
 Root nem kell; a klón bárhová kerülhet, a telepítő a saját helyéből számolja az útvonalakat.
@@ -31,18 +31,23 @@ Amíg a bővítmény nem fut, a Python a kontextusmérőket a sáv jobb oldalán
 
 Kézi indítás (egy sor, a terminálból függetlenül fut tovább):
 
-    setsid python3 ~/cli-extensions/kontextus-ikon/kontextus_ikon.py >/dev/null 2>&1 &
+    setsid python3 ~/projects/cli-extensions/kontextus-ikon/kontextus_ikon.py >/dev/null 2>&1 &
 
 Ellenőrzés ikon nélkül (kiírja, amit a kontextusmérők mutatnának):
 
-    python3 ~/cli-extensions/kontextus-ikon/kontextus_ikon.py --once
+    python3 ~/projects/cli-extensions/kontextus-ikon/kontextus_ikon.py --once
 
 Automatikus indítás: `~/.config/autostart/kontextus-ikon.desktop` (a telepítő írja). Kikapcsolás: töröld azt a fájlt. Egyszerre csak egy példány fut; a második indítás kilép.
 
 Kontextusmérők: csak akkor látszanak, ha fut legalább egy Claude Code terminál. Szín: `PROJECT_COLORS` szerint
 (nemesventilatorhaz kék, a többi zöld), `RED_FROM` (500k) fölött piros. A menüben repó, session, állapot, tokenszám.
+
+Subagentek: ha egy terminál sessionjének fut legalább egy subagentje, a szám után egy kisebb körív mutatja a
+legnagyobb kontextusú futó subagentet (ugyanazzal a színezéssel); a menüben a futó subagentek listája látszik.
+Futónak számít, amelyik `.meta.json`-jában nincs `"finished": true`, és a transcriptje `SUB_STALE_SEC` (10 perc)
+óta változott.
 Beállítások a `kontextus_ikon.py` elején: `PROJECT_COLORS`, `DEFAULT_COLOR`, `RED_FROM`, `GAUGE_MAX`, `KINDS`,
-`POLL_SEC`, `WARN_AT`.
+`POLL_SEC`, `WARN_AT`, `SUB_STALE_SEC`.
 
 Ugrás a terminálba: a Python a session terminálfülére ideiglenes egyedi címet ír, a bővítmény előrehozza az ilyen
 című Ptyxis-ablakot, majd az eredeti cím visszaáll. Ha a session egy ablak nem aktív fülén fut, az ablak nem található.
