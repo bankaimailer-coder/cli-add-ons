@@ -9,7 +9,7 @@ set -eu
 
 DIR=$(cd "$(dirname "$0")" && pwd)
 SETTINGS="$HOME/.claude/settings.json"
-CMD="python3 $DIR/kontextus_horog.py"
+CMD="python3 \"$DIR/kontextus_horog.py\""
 
 command -v python3 >/dev/null || { echo "HIBA: nincs python3"; exit 1; }
 
@@ -24,7 +24,7 @@ post = data.setdefault("hooks", {}).setdefault("PostToolUse", [])
 found = changed = False
 for group in post:
     for h in group.get("hooks", []):
-        if str(h.get("command", "")).endswith("kontextus_horog.py"):
+        if str(h.get("command", "")).rstrip("\"").endswith("kontextus_horog.py"):
             found = True
             if h["command"] != cmd:
                 h["command"] = cmd
