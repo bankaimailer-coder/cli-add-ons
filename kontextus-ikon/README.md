@@ -56,5 +56,11 @@ Memória-chip: mindig látszik; a használt memória (MemTotal - MemAvailable, m
 A rajza a `chip.js`-ben, a kontextusmérőé a `gauge.js`-ben van.
 
 CLI-sor: a `statusline.py` (a `~/.claude/settings.json` `statusLine` bejegyzése, így minden Claude Code terminálban)
-kiírja az 5 órás és a heti keret kihasználtságát, pl. „5 órás: 18% | heti: 78%”. A Fable-keretet a Claude Code
-jelenleg nem adja át; ha megjelenik, a sor magától kiírja.
+kiírja az 5 órás és a heti keret kihasználtságát, mindkettő mellé a Fable 5.2 becsült részét, pl.
+„5 órás: 18% (ebből Fable 5.2: ~12%) | heti: 83% (ebből Fable 5.2: ~23%)”. A zárójeles szám azt mutatja, hogy a
+keret felhasznált százalékából mennyi ment Fable 5.2-re.
+
+A Fable-rész becslés: külön Fable-keretet a Claude Code nem ad át, ezért a sor a gép helyi transcriptjeiből
+(`~/.claude/projects`) számol. Az adott időablak modellhívásait API-listaáron súlyozza (`PRICES` a `statusline.py`
+elején), és a keret százalékát a Fable arányában osztja el. Más gépen vagy a claude.ai-on elhasznált keretet nem
+látja. A számítás 30 másodpercenként frissül, a gyorsítótára a `~/.cache/claude-fable-share.json`.
