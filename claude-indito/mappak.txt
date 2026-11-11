@@ -14,6 +14,7 @@ CT NEW | ~/AI PROJECTS/ct-new
 DIGITAL ART GALERY | ~/AI PROJECTS/digital-art-galery
 FOUNDRY VTT CAMPAIGN | ~/AI PROJECTS/foundry-vtt-campaign
 VTT | ~/AI PROJECTS/vtt
+GAME DEVELOPMENT | ~/AI PROJECTS/game-development
 
 # bfwork gép (~/work)
 CRM REBUILD | ~/work/soborbo_crm_rebuild

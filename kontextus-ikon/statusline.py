@@ -172,6 +172,53 @@ def fable_points(calls, key, v):
     return v["used_percentage"] * fable / total
 
 
+USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
+USAGE_CACHE = os.path.expanduser("~/.cache/claude-account-usage.json")
+USAGE_EVERY = 120  # seconds between account queries (the CLI's own /usage caches for 5 minutes)
+CREDENTIALS = os.path.expanduser("~/.claude/.credentials.json")
+
+
+def account_model_rows():
+    """Per-model weekly limits of the account ({display name: percent}), the same rows /usage shows
+    as 'Current week (<model>)'. Queried from the endpoint the CLI, VS Code and the web app use,
+    with the CLI's own OAuth token; cached, and None if it can't be fetched."""
+    now = time.time()
+    try:
+        with open(USAGE_CACHE, encoding="utf-8") as f:
+            c = json.load(f)
+        if now - c["at"] < USAGE_EVERY:
+            return c["rows"]
+    except (OSError, ValueError, KeyError, TypeError):
+        c = None
+    rows = None
+    try:
+        import urllib.request
+        with open(CREDENTIALS, encoding="utf-8") as f:
+            token = json.load(f)["claudeAiOauth"]["accessToken"]
+        req = urllib.request.Request(USAGE_URL, headers={
+            "Authorization": f"Bearer {token}",
+            "anthropic-beta": "oauth-2025-04-20",
+            "Content-Type": "application/json",
+        })
+        with urllib.request.urlopen(req, timeout=3) as r:
+            data = json.load(r)
+        rows = {}
+        for row in data.get("limits") or []:
+            name = ((row.get("scope") or {}).get("model") or {}).get("display_name")
+            if row.get("kind") == "weekly_scoped" and isinstance(name, str) and row.get("percent") is not None:
+                rows[name] = row["percent"]
+    except Exception:
+        rows = c["rows"] if c else None  # keep the last good value on a failed query
+    try:
+        tmp = f"{USAGE_CACHE}.{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"at": now, "rows": rows}, f)
+        os.replace(tmp, USAGE_CACHE)
+    except OSError:
+        pass
+    return rows
+
+
 def main():
     raw = sys.stdin.read()
     try:  # TEMPORARY debug (2026-11-10): what the CLI sends; remove after the check
@@ -185,19 +232,26 @@ def main():
         return
     rl = d.get("rate_limits") or {}
     parts = []
+    try:
+        model_rows = account_model_rows()
+    except Exception:
+        model_rows = None
     calls = None
     for key, v in rl.items():
         if isinstance(v, dict) and v.get("used_percentage") is not None:
             text = f"{label(key)}: {round(v['used_percentage'])}%"
-            try:
-                if calls is None:
-                    calls = load_calls()
-                pts = fable_points(calls, key, v)
-            except Exception:
-                pts = None
-            if pts is not None:
-                text += f" (ebből {FABLE_LABEL}: ~{round(pts)}%)"
+            if model_rows is None:  # no account data: fall back to the local estimate
+                try:
+                    if calls is None:
+                        calls = load_calls()
+                    pts = fable_points(calls, key, v)
+                except Exception:
+                    pts = None
+                if pts is not None:
+                    text += f" (ebből {FABLE_LABEL} becslés: ~{round(pts)}%)"
             parts.append(text)
+    for name, pct in (model_rows or {}).items():
+        parts.append(f"{name} heti: {round(pct)}%")
     try:
         sub = subagents_part(d)
     except OSError:
