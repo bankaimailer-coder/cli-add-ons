@@ -18,7 +18,7 @@ cat > "$DST" <<DESKTOP
 Type=Application
 Name=Claude indító
 Comment=Mappa kiválasztása és Claude Code indítása terminálban
-Exec=sh $DIR/claude-indito.sh
+Exec=sh "$DIR/claude-indito.sh"
 Icon=$DIR/claude-figura.svg
 Terminal=false
 Categories=Development;

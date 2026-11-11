@@ -14,7 +14,7 @@ EXT_SRC="$DIR/gnome-extension/$EXT_UUID"
 EXT_DST="$HOME/.local/share/gnome-shell/extensions/$EXT_UUID"
 AUTOSTART="$HOME/.config/autostart/kontextus-ikon.desktop"
 SETTINGS="$HOME/.claude/settings.json"
-STATUS_CMD="python3 $DIR/statusline.py"
+STATUS_CMD="python3 \"$DIR/statusline.py\""
 
 ok() { echo "  kész: $1"; }
 
