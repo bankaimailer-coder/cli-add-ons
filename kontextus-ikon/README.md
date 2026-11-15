@@ -56,12 +56,15 @@ című Ptyxis-ablakot, majd az eredeti cím visszaáll. Ha a session egy ablak n
 Memória-chip: mindig látszik; a használt memória (MemTotal - MemAvailable, mint a `free`) százalékban.
 A rajza a `chip.js`-ben, a kontextusmérőé a `gauge.js`-ben van.
 
-Keretmérők: öt keskeny mérő egymás mellett. Mindegyiken bal oldalt függőleges sáv telik alulról, mellette fent
-egy apró jel (`5h` = 5 órás, `H` = heti, `F` = Fable heti), alatta a felhasznált százalék száma. A Claude-mérők jele
-narancs, a Codexéi kékek, a két csoport között nagyobb a köz. A sáv 75%-tól sárga, 90%-tól piros. Ha egy adat
-nincs meg (nincs forrás, elavult, vagy az ablak azóta visszaállt), a mérő szürke keret és „–”, becsült számot nem
-mutat. Kattintásra a menü mérőnként kiírja a százalékot, a visszaállás idejét (és hogy mennyi van hátra), az adat
-idejét, illetve a „nincs adat” okát. 15 másodpercenként frissül; a rajz a `meter.js`-ben, az olvasás a `limits.js`-ben.
+Keretmérők: öt mérő egymás mellett, mindegyik a MEGMARADT keretet mutatja. Bal oldalt a márka ikonja: a
+Claude-mérőkön a Claude-csillag (narancs), a Codex-mérőkön az OpenAI-csomó (törtfehér). Az ikon alulról a
+megmaradt keret arányáig teli (tele = a teljes keret megvan), a kiürült része halvány tónusban látszik, így a forma
+mindig felismerhető. Mellette fent egy apró jel (`5h` = 5 órás, `H` = heti, `F` = Fable heti), alatta a megmaradt
+százalék (100 − elhasznált). 25% maradék alatt az ikon kitöltése és a szám sárga, 10% alatt piros. A két csoport
+között nagyobb a köz. Ha egy adat nincs meg (nincs forrás, elavult, vagy az ablak azóta visszaállt), a mérő szürke
+ikon és „–”, becsült számot nem mutat. Kattintásra a menü mérőnként kiírja a százalékot („maradt 55% (elhasználva
+45%)”), a visszaállás idejét (és hogy mennyi van hátra), az adat idejét, illetve a „nincs adat” okát.
+15 másodpercenként frissül; a rajz (vektoros, Cairo) a `meter.js`-ben, az olvasás a `limits.js`-ben.
 
 - Claude 5 órás és heti: a Claude Code a statusline-nak adja át (`rate_limits.five_hour` / `seven_day`, `resets_at`-tel).
   A `statusline.py` ezeket kiírja a `$XDG_RUNTIME_DIR/kontextus-ikon/keretek.json` fájlba; amelyik ablakot egy
@@ -75,7 +78,7 @@ idejét, illetve a „nincs adat” okát. 15 másodpercenként frissül; a rajz
   nem nyúl. Az adat a legutolsó Codex-futás pillanatképe.
 
 Hőmérők: a keretmérők és a memória-chip között, a CPU és a GPU külön. Az ikon egy chip-foglalat (dupla keret,
-oldalanként 4 láb), benne fordulatszámmérő mutatóval és jobb oldalt lánggal; a CPU-é steelblue (`#4682b4`), a
+oldalanként 4 láb), benne fordulatszámmérő mutatóval és jobb oldalt lánggal; a CPU-é világoslila (`#c084fc`), a
 GPU-é cián (`#00ffff`). Mellette a hőmérséklet: a CPU-nál a 30 másodperces medián (ebből számol a hőfigyelő
 szintje), a GPU-nál a pillanatnyi érték. A szám színe a szint: rendben fehér, meleg sárga, forró és kritikus piros.
 Egy mérő csak akkor színeződik, ha a saját értéke is eléri a szint kilépési küszöbét (a `hofigyelo.py`
