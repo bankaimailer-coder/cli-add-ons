@@ -26,7 +26,8 @@ Többször is futtatható, ami már be van állítva, azt nem módosítja. A tel
 3. bekapcsolja a meglévő bekapcsolt bővítmények mellé (`org.gnome.shell enabled-extensions`);
 4. megírja az automatikus indítást (`~/.config/autostart/kontextus-ikon.desktop`);
 5. felveszi a statusline-t a `~/.claude/settings.json`-ba (előtte mentést készít; meglévő, eltérő statusline-t nem ír felül);
-6. elindítja a háttérfolyamatot.
+6. elindítja a háttérfolyamatot;
+7. telepíti, bekapcsolja és elindítja a keretfigyelő szolgáltatást (systemd felhasználói egység, lásd lent).
 
 Amíg a bővítmény nem fut, a Python a kontextusmérőket a sáv jobb oldalán, appindicator-ikonként mutatja.
 
@@ -63,8 +64,24 @@ mindig felismerhető. Mellette fent egy apró jel (`5h` = 5 órás, `H` = heti, 
 százalék (100 − elhasznált). 25% maradék alatt az ikon kitöltése és a szám sárga, 10% alatt piros. A két csoport
 között nagyobb a köz. Ha egy adat nincs meg (nincs forrás, elavult, vagy az ablak azóta visszaállt), a mérő szürke
 ikon és „–”, becsült számot nem mutat. Kattintásra a menü mérőnként kiírja a százalékot („maradt 55% (elhasználva
-45%)”), a visszaállás idejét (és hogy mennyi van hátra), az adat idejét, illetve a „nincs adat” okát.
-15 másodpercenként frissül; a rajz (vektoros, Cairo) a `meter.js`-ben, az olvasás a `limits.js`-ben.
+45%)”), a visszaállás idejét (és hogy mennyi van hátra), az adat idejét, illetve a „nincs adat” konkrét okát
+(nincs napló, nincs `rate_limits`, csonka sor, olvasási hiba, hiányzó ablak). A váratlan olvasási hiba a
+GNOME-naplóba is bekerül (`journalctl --user -b | grep kontextus-ikon`), ugyanaz a hiba csak egyszer.
+15 másodpercenként, és az állapotfájlok (a statusline és a keretfigyelő fájlja), a legfrissebb Codex-napló mappája
+és fölötte a hónap, az év és a `~/.codex/sessions` mappa változásakor azonnal (legfeljebb másodpercenként) frissül; a
+futó Codex naplójából csak a hozzáírt részt olvassa; a rajz (vektoros, Cairo) a `meter.js`-ben, az olvasás a
+`limits.js`-ben.
+
+Régi adat: ha egy keretadat 1 óránál régebbi (`STALE_AFTER` a `limits.js`-ben, egy helyen, minden keretmérőre),
+de az ablak még nem állt vissza, a mérő a számot szürkén mutatja, az ikon kitöltése halvány, a jel (`5h`, `H`, `F`)
+megmarad, és mellette jobb fent egy apró pont jelzi a régiséget; a menüben „RÉGI ADAT”, és hogy mikor volt az utolsó adat (Codexnél: utolsó helyi Codex-futás;
+Claude-nál: az ablak utolsó statusline-írása, Fable-nél az utolsó fiók-lekérdezés). Ha az ablak azóta visszaállt,
+a mérő „–”, a menüben: visszaállt, és mióta nincs új adat.
+
+**Korlát (Codex, keretfigyelő nélkül):** keretfigyelő nélkül a Codex-mérő csak a gépen, ebben a felhasználói
+fiókban futó Codex CLI naplójából tud. A ChatGPT-alkalmazásban, a weben, más gépen vagy más fiókban elhasznált keret
+a következő helyi Codex-futásig nem látszik; addig a mérő a legutolsó helyi pillanatképet mutatja, egy óra után
+régiként. A keretfigyelő (lent) ezt a korlátot oldja fel.
 
 - Claude 5 órás és heti: a Claude Code a statusline-nak adja át (`rate_limits.five_hour` / `seven_day`, `resets_at`-tel).
   A `statusline.py` ezeket kiírja a `$XDG_RUNTIME_DIR/kontextus-ikon/keretek.json` fájlba; amelyik ablakot egy
@@ -75,7 +92,61 @@ ikon és „–”, becsült számot nem mutat. Kattintásra a menü mérőnkén
   `token_count` eseménnyel kiírja a `rate_limits` mezőt (`primary`/`secondary`: `used_percent`, `window_minutes`,
   `resets_at`). A bővítmény a legfrissebb fájlok végéből a legutolsót olvassa; az ablakot a hossza alapján
   választja (300 perc = 5 órás, 10080 perc = heti). Csak olvas, a `~/.codex` többi tartalmához (pl. `auth.json`)
-  nem nyúl. Az adat a legutolsó Codex-futás pillanatképe.
+  nem nyúl. Az adat a legutolsó helyi Codex-futás pillanatképe (lásd a korlátot fent).
+
+## Keretfigyelő (folyamatos keretmérés, háttérszolgáltatás)
+
+A `keretfigyelo.py` systemd felhasználói szolgáltatásként (`kontextus-keretfigyelo.service`) fut, attól függetlenül,
+hogy van-e nyitott Claude Code vagy Codex munkamenet, és a `$XDG_RUNTIME_DIR/kontextus-ikon/keretfigyelo.json`
+fájlba írja a kereteket (atomikusan: ideiglenes fájl, majd átnevezés). Ezt a fájlt csak ő írja; a statusline a saját
+`keretek.json` fájlját írja, így a kettő nem verseng. A bővítmény mindkettőt olvassa, és mérőnként a frissebb adatot
+mutatja; a helyi Codex-napló (fent) tartalékként megmarad, és ha egy helyi Codex-futás frissebb, az nyer.
+
+- Claude (5 órás, heti, Fable heti): a fiók `/usage` végpontja (`api.anthropic.com/api/oauth/usage`, a válasz
+  `limits[]` sorai: `session` = 5 órás, `weekly_all` = heti, `weekly_scoped` modellnévvel = Fable), a Claude Code
+  saját OAuth-tokenjével a `~/.claude/.credentials.json`-ból. A tokent csak olvassa: nem frissíti, nem írja, nem
+  naplózza. A lekérés a `statusline.py` `account_usage()` függvénye; a gyorsítótár (`~/.cache/claude-account-usage.json`)
+  és a gyakoriság (`USAGE_EVERY` = 120 mp, a `statusline.py`-ban) közös, és egyszerre csak egy folyamat kérdez (zárfájl
+  a gyorsítótár mellett; a statusline nem vár, a gyorsítótárat adja). Ha nincs bejelentkezés vagy lejárt a token
+  (401, vagy a hitelesítő fájl `expiresAt` ideje elmúlt), a menüben ez az ok áll, a mérő az utolsó jó adatot
+  régiként mutatja; a következő Claude Code indítás frissíti a tokent, utána a figyelő magától helyreáll.
+- Codex (5 órás, heti): tartósan futó `codex app-server` (stdio, soronként egy JSON-üzenet): `initialize`,
+  `initialized`, majd percenként (`CODEX_EVERY` = 60 mp, a `keretfigyelo.py` elején) `account/rateLimits/read`
+  (modellhívás és tokenköltség nélkül). Ha az app-server `account/rateLimits/updated` értesítést küld, azonnal
+  frissít (a 2026-11-15-i próbán tétlen app-server 2 perc alatt magától nem küldött ilyet; a percenkénti lekérés a fő
+  út). Ha a Codex nincs telepítve, nincs bejelentkezve, API-kulccsal van bejelentkezve, az app-server hibát ad, kilép
+  vagy 30 mp-ig nem válaszol, a menüben a konkrét ok áll, és az újraindítás növekvő várakozással jön (5, 15, 60,
+  300, 900 mp). A Codex-tokent az app-server kezeli; a figyelő az `auth.json`-t nem olvassa.
+- A menü utolsó sora a figyelő állapota: fut-e, és a Claude- és a Codex-lekérés utolsó oka. Ha a figyelő nem fut
+  (nincs állapotfájl, vagy 2 percnél régebbi), a menü kiírja, és a mérők a fenti módon (statusline, helyi
+  Codex-napló) működnek tovább. Leállításkor a figyelő törli az állapotfájlját.
+
+Kockázat: mindkét forrás nem dokumentált, belső felület. Az `api/oauth/usage` a Claude Code, a VS Code és a webes
+felület belső végpontja, a `codex app-server` a Codex saját, kísérletinek jelölt (`[experimental]`) protokollja;
+bármelyik formája verzióváltáskor változhat, ilyenkor a mérő „nincs adat” okot mutat, becslést nem. Az app-server a
+saját fájljait (`~/.codex` alatt: naplók, állapot-adatbázis, szükség esetén a token frissítése) maga kezeli; ezt a
+figyelő nem befolyásolja.
+
+Telepítés, eltávolítás (root nélkül, bármelyik klónból, szóközös útvonallal is; többször futtatható):
+
+    sh kontextus-ikon/install.sh --figyelo                # csak a keretfigyelő: egység, enable, (újra)indítás
+    sh kontextus-ikon/install.sh --figyelo-eltavolitas    # leállítás, kikapcsolás, az egység és az állapotfájl törlése
+
+Ideiglenes kikapcsolás: `systemctl --user stop kontextus-keretfigyelo.service` (bejelentkezéskor újraindul), végleges:
+`systemctl --user disable --now kontextus-keretfigyelo.service` vagy a fenti eltávolítás. Napló:
+`journalctl --user -u kontextus-keretfigyelo.service` (csak okok, token, fejléc, válasz soha). Egyszeri próba a
+valódi bejelentkezéssel: `python3 kontextus-ikon/keretfigyelo.py --once`. Ez mindig friss Claude- és Codex-lekérést
+végez (ideiglenes, utána törölt gyorsítótárral), a közös gyorsítótárat és az állapotfájlt nem írja; a `~/.codex` alá
+az általa indított `codex app-server` a saját fájljait írhatja.
+
+## Tesztek
+
+Kézzel írt minták a `tests/fixtures` alatt (Codex-napló, statusline-fájl, keretfigyelő-állapot, a `/usage` válasza,
+app-server-utánzat), rögzített idővel; valódi hálózatot, tokent, Codexet és systemd-t nem érnek el:
+
+    bash kontextus-ikon/tests/run_all.sh        # minden teszt (gjs, python, telepítő), kilépési kód 0 = zöld
+    bash kontextus-ikon/tests/mutants.sh        # szándékosan hibás változatok: mindre pirosnak kell lennie
+    gjs -m kontextus-ikon/tests/preview.js DIR  # PNG-előnézet: friss, régi, visszaállt; 1x és 2x
 
 Hőmérők: a keretmérők és a memória-chip között, a CPU és a GPU külön. Az ikon egy chip-foglalat (dupla keret,
 oldalanként 4 láb), benne fordulatszámmérő mutatóval és jobb oldalt lánggal; a CPU-é világoslila (`#c084fc`), a

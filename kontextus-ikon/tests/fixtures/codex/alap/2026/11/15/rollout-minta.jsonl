@@ -1,0 +1,5 @@
+{"timestamp":"2026-11-15T12:30:00.000Z","type":"session_meta","payload":{"id":"minta"}}
+{"timestamp":"2026-11-15T12:40:00.000Z","type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":{"limit_id":"codex","primary":{"used_percent":10.0,"window_minutes":300,"resets_at":1794756480},"secondary":{"used_percent":40.0,"window_minutes":10080,"resets_at":1795005960},"plan_type":"plus"}}}
+{"timestamp":"2026-11-15T12:46:00.000Z","type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":{"limit_id":"codex","primary":{"used_percent":20.0,"window_minutes":300,"resets_at":1794756480},"secondary":{"used_percent":47.0,"window_minutes":10080,"resets_at":1795005960},"plan_type":"plus"}}}
+{"timestamp":"2026-11-15T12:45:00.000Z","type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":{"limit_id":"idegen","primary":{"used_percent":99.0,"window_minutes":300,"resets_at":1794756480}}}}
+{"timestamp":"2026-11-15T12:46:30.000Z","type":"response_item","payload":{"type":"message","role":"assistant"}}

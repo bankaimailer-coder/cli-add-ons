@@ -3,12 +3,18 @@
 # Bárhonnan futtatható; az útvonalakat a script saját helyéből számolja.
 # Többször is futtatható: ami már be van állítva, azt nem módosítja.
 #
-#   sh install.sh
+#   sh install.sh                          # minden, a keretfigyelő szolgáltatással együtt
+#   sh install.sh --figyelo                # csak a keretfigyelő szolgáltatás (telepítés, bekapcsolás, indítás)
+#   sh install.sh --figyelo-eltavolitas    # a keretfigyelő leállítása, kikapcsolása és törlése
 #
 # Utána egyszer ki kell jelentkezni és vissza, hogy a GNOME-bővítmény betöltődjön.
+# KONTEXTUS_SYSTEMCTL: a systemctl helyett ez a parancs fut (próbához; alapból: systemctl).
 set -eu
 
 DIR=$(cd "$(dirname "$0")" && pwd)
+UNIT_NAME=kontextus-keretfigyelo.service
+UNIT_DST="$HOME/.config/systemd/user/$UNIT_NAME"
+SYSTEMCTL=${KONTEXTUS_SYSTEMCTL:-systemctl}
 EXT_UUID=kontextus@kontextus-ikon
 EXT_SRC="$DIR/gnome-extension/$EXT_UUID"
 EXT_DST="$HOME/.local/share/gnome-shell/extensions/$EXT_UUID"
@@ -17,6 +23,53 @@ SETTINGS="$HOME/.claude/settings.json"
 STATUS_CMD="python3 \"$DIR/statusline.py\""
 
 ok() { echo "  kész: $1"; }
+
+# a keretfigyelő systemd felhasználói egysége: a sablonból kitöltve (keretfigyelo.py --unit), csak ha változott;
+# bekapcsolva és (újra)indítva
+install_figyelo() {
+    command -v python3 >/dev/null || { echo "HIBA: nincs python3"; exit 1; }
+    mkdir -p "$(dirname "$UNIT_DST")"
+    NEW_UNIT=$(python3 "$DIR/keretfigyelo.py" --unit)
+    if [ -f "$UNIT_DST" ] && [ "$(cat "$UNIT_DST")" = "$NEW_UNIT" ]; then
+        ok "keretfigyelő-egység (már megvolt): $UNIT_DST"
+        CHANGED=0
+    else
+        printf '%s\n' "$NEW_UNIT" > "$UNIT_DST"
+        ok "keretfigyelő-egység: $UNIT_DST"
+        CHANGED=1
+    fi
+    if ! "$SYSTEMCTL" --user daemon-reload; then
+        echo "  figyelem: a systemctl --user nem érhető el; a keretfigyelőt kézzel kell indítani:"
+        echo "            python3 \"$DIR/keretfigyelo.py\""
+        return 0
+    fi
+    "$SYSTEMCTL" --user enable "$UNIT_NAME"
+    if [ "$CHANGED" = 1 ]; then
+        "$SYSTEMCTL" --user restart "$UNIT_NAME"
+    else
+        "$SYSTEMCTL" --user start "$UNIT_NAME"
+    fi
+    ok "keretfigyelő bekapcsolva és fut (állapot: systemctl --user status $UNIT_NAME)"
+}
+
+uninstall_figyelo() {
+    if [ -f "$UNIT_DST" ]; then
+        "$SYSTEMCTL" --user disable --now "$UNIT_NAME" || true
+        rm -f "$UNIT_DST"
+        "$SYSTEMCTL" --user daemon-reload || true
+        ok "keretfigyelő leállítva, kikapcsolva, törölve: $UNIT_DST"
+    else
+        ok "keretfigyelő nincs telepítve (nincs mit törölni)"
+    fi
+    rm -f "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/kontextus-ikon/keretfigyelo.json"
+}
+
+case "${1:-}" in
+    --figyelo) echo "Keretfigyelő telepítése innen: $DIR"; install_figyelo; exit 0 ;;
+    --figyelo-eltavolitas) echo "Keretfigyelő eltávolítása"; uninstall_figyelo; exit 0 ;;
+    "") ;;
+    *) echo "HIBA: ismeretlen kapcsoló: $1 (lehet: --figyelo, --figyelo-eltavolitas)"; exit 2 ;;
+esac
 
 echo "Kontextus-ikon telepítése innen: $DIR"
 
@@ -123,6 +176,9 @@ if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
     setsid python3 "$DIR/kontextus_ikon.py" >/dev/null 2>&1 &
     ok "háttérfolyamat elindítva (vagy már futott)"
 fi
+
+# 7. keretfigyelő: folyamatos Claude- és Codex-keretmérés, systemd felhasználói szolgáltatásként
+install_figyelo
 
 echo
 echo "Kész. A GNOME-bővítmény a következő ki- és bejelentkezés után töltődik be."

@@ -1,0 +1,9 @@
+{"ts": 1794747410, "started": 1794746000, "pid": 4242,
+ "claude": {"why": null, "ok_at": 1794747360,
+   "five_hour": {"pct": 35, "resets_at": 1794756480, "ts": 1794747360, "source": "fiók"},
+   "seven_day": {"pct": 62, "resets_at": 1795005960, "ts": 1794747360, "source": "fiók"},
+   "fable": {"pct": 21, "resets_at": 1795005960, "ts": 1794747360, "source": "fiók", "name": "Fable"}},
+ "codex": {"why": null, "ok_at": 1794747060, "plan": "pro",
+   "five_hour": {"pct": 25, "resets_at": 1794756480, "ts": 1794747060, "window_minutes": 300, "source": "app-server"},
+   "weekly": {"pct": 50, "resets_at": 1795005960, "ts": 1794747060, "window_minutes": 10080, "source": "app-server"}},
+ "every": {"claude": 120, "codex": 60, "heartbeat": 30}}

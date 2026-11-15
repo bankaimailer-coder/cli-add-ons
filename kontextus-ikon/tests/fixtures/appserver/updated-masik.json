@@ -1,0 +1,3 @@
+{"method": "account/rateLimits/updated", "params": {"rateLimits": {"limitId": "codex_bengalfox", "limitName": "GPT-5-Codex-Spark",
+  "primary": {"usedPercent": 99, "windowDurationMins": 300, "resetsAt": 1794756480},
+  "secondary": null, "credits": null, "planType": "plus"}}}

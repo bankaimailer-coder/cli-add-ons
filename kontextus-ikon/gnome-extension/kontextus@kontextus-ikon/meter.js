@@ -1,7 +1,8 @@
 // Keretmérő és hőmérő rajza (cairo + Pango), shell nélkül is futtatható.
 // Keretmérő: bal oldalt a márka ikonja (Claude-csillag / OpenAI-csomó), amely alulról a megmaradt
 // keret arányáig teli; mellette fent apró jel (5h / H / F), alatta a megmaradt százalék.
-// Nincs adat: szürke ikon és „–”.
+// Nincs adat: szürke ikon és „–”. Régi adat (stale): a szám szürke, az ikon kitöltése halvány, a jel (5h / H / F)
+// megmarad, mellette jobb fent egy apró pont jelzi a régiséget.
 // Hőmérők (CPU és GPU külön): chip-foglalatba rajzolt fordulatszámmérő lánggal, mellette a fok.
 import Pango from 'gi://Pango';
 import PangoCairo from 'gi://PangoCairo';
@@ -77,8 +78,9 @@ function openaiPath(cr, s) {
 const BRANDS = {claude: claudePath, openai: openaiPath};
 
 // márkaikon, alulról a frac (0-1) arányáig teli; fölötte halvány tónus, hogy a forma mindig látsszon.
-// frac === null: nincs adat, szürke forma. rgb: a halvány rész (márkaszín), fill: a teli rész színe
-function drawBrand(cr, s, brand, frac, rgb, fill) {
+// frac === null: nincs adat, szürke forma. rgb: a halvány rész (márkaszín), fill: a teli rész színe,
+// alpha: a teli rész átlátszatlansága
+function drawBrand(cr, s, brand, frac, rgb, fill, alpha = 1) {
     const path = BRANDS[brand];
     cr.save();
     if (frac === null)
@@ -93,26 +95,53 @@ function drawBrand(cr, s, brand, frac, rgb, fill) {
     const top = s * (1 - frac);
     cr.rectangle(-1, top, s + 2, s - top + 1);
     cr.clip();
-    cr.setSourceRGB(...fill);
+    cr.setSourceRGBA(...fill, alpha);
     path(cr, s);
     cr.restore();
 }
 
-// Keretmérő. cr: cairo Context, w × h: rajzterület pixelben, left: a MEGMARADT keret 0-100 vagy null,
-// tag: '5h' | 'H' | 'F', rgb: a márka színe, brand: 'claude' | 'openai'.
-// 25% maradék alatt sárga, 10% alatt piros (az ikon kitöltése és a szám is).
-export function drawLimit(cr, w, h, left, tag, rgb, brand) {
+const STALE_ALPHA = 0.45;
+const MARK_RGB = [0.85, 0.85, 0.83];   // a régiség pontja   // régi adatnál az ikon kitöltése ennyire átlátszatlan
+
+// A keretmérő kinézetének döntése (tiszta függvény, a rajztól külön tesztelhető).
+// left: a MEGMARADT keret 0-100 vagy null, stale: az adat régi (limits.js, STALE_AFTER).
+// 25% maradék alatt sárga, 10% alatt piros (az ikon kitöltése és friss adatnál a szám is).
+// mark: a régiség apró jele a mérő jele (tag) mellett; a jel régi adatnál is megmarad.
+export function limitStyle(left, stale, tag, rgb) {
     const none = left === null || left === undefined;
-    const warn = none ? null : left < 10 ? FULL_RGB : left < 25 ? WARN_RGB : null;
-    drawBrand(cr, h, brand, none ? null : Math.max(0, Math.min(1, left / 100)), rgb, warn ?? rgb);
+    if (none)
+        return {frac: null, fill: rgb, alpha: 1, tag, tagRgb: GRAY, text: '–', textRgb: GRAY, mark: false};
+    const warn = left < 10 ? FULL_RGB : left < 25 ? WARN_RGB : null;
+    return {
+        frac: Math.max(0, Math.min(1, left / 100)),
+        fill: warn ?? rgb,
+        alpha: stale ? STALE_ALPHA : 1,
+        tag,
+        mark: Boolean(stale),
+        tagRgb: stale ? GRAY : rgb,
+        text: String(Math.round(left)),
+        textRgb: stale ? GRAY : warn ?? WHITE,
+    };
+}
+
+// Keretmérő. cr: cairo Context, w × h: rajzterület pixelben, left: a MEGMARADT keret 0-100 vagy null,
+// tag: '5h' | 'H' | 'F', rgb: a márka színe, brand: 'claude' | 'openai', stale: régi adat.
+export function drawLimit(cr, w, h, left, tag, rgb, brand, stale = false) {
+    const st = limitStyle(left, stale, tag, rgb);
+    drawBrand(cr, h, brand, st.frac, rgb, st.fill, st.alpha);
 
     // jel fent, szám lent
     const tx = h + Math.max(1, Math.round(h * 0.1));
     const tw = w - tx;
     const tagH = Math.round(h * 0.38);
-    drawText(cr, tag, tx, 0, tw, tagH, none ? GRAY : rgb, tagH * 1.25);
-    drawText(cr, none ? '–' : String(Math.round(left)), tx, tagH, tw, h - tagH,
-        none ? GRAY : warn ?? WHITE, (h - tagH) * 1.3);
+    const dot = st.mark ? Math.max(2, Math.round(h * 0.2)) : 0;   // a régiség jele: apró pont jobb fent
+    drawText(cr, st.tag, tx, 0, tw - dot, tagH, st.tagRgb, tagH * 1.25);
+    if (st.mark) {
+        cr.setSourceRGB(...MARK_RGB);
+        cr.arc(w - dot / 2, tagH / 2, dot / 2, 0, 2 * Math.PI);
+        cr.fill();
+    }
+    drawText(cr, st.text, tx, tagH, tw, h - tagH, st.textRgb, (h - tagH) * 1.3);
 }
 
 function roundRect(cr, x, y, w, h, r) {

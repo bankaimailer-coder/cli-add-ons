@@ -1,0 +1,3 @@
+{"method": "account/rateLimits/updated", "params": {"rateLimits": {"limitId": "codex", "limitName": null,
+  "primary": {"usedPercent": 35, "windowDurationMins": 300, "resetsAt": 1794756480},
+  "secondary": null, "credits": null, "planType": "plus"}}}

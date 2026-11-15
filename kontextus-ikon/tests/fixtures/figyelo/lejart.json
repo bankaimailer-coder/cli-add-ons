@@ -1,0 +1,5 @@
+{"ts": 1794747410, "started": 1794746000, "pid": 4242,
+ "claude": {"why": "a Claude-bejelentkezés lejárt (401)", "ok_at": 1794739560,
+   "seven_day": {"pct": 58, "resets_at": 1795005960, "ts": 1794739560, "source": "fiók"}},
+ "codex": {"why": "nincs Codex-bejelentkezés", "ok_at": null},
+ "every": {"claude": 120, "codex": 60, "heartbeat": 30}}

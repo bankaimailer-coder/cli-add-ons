@@ -15,10 +15,12 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {drawChip} from './chip.js';
 import {drawGauge} from './gauge.js';
 import {drawLimit, drawHeat, CLAUDE_RGB, CODEX_RGB, CPU_RGB, GPU_RGB} from './meter.js';
-import {readClaude, readCodex, readHeat, HEAT_LEVELS} from './limits.js';
+import {readLimits, readHeat, HEAT_LEVELS, CLAUDE_FILE, CODEX_SESSIONS, codexWatchDirs, figyeloStatus}
+    from './limits.js';
 
 const MEM_POLL_SEC = 3;
 const LIMIT_POLL_SEC = 15;
+const WATCH_DELAY_MS = 1000;  // fájlváltozás után ennyivel később olvas újra (egy írás több eseményt ad; futó Codex: legfeljebb 1/mp)
 const HEAT_POLL_SEC = 5;
 const LIMIT_W = 36, LIMIT_H = 20;   // keretmérő (négyzetes márkaikon + jel és szám), logikai pixel
 const HEAT_W = 38;                  // hőmérő: négyzetes ikon + a fok
@@ -140,10 +142,17 @@ function fmtTime(ts) {
     return dt.format(sameDay ? '%H:%M' : '%m.%d. %H:%M');
 }
 
-function fmtLeft(ts) {
-    const min = Math.max(0, Math.round((ts - Date.now() / 1000) / 60));
+function fmtDur(sec) {
+    const min = Math.max(0, Math.round(sec / 60));
     const d = Math.floor(min / 1440), h = Math.floor(min % 1440 / 60), m = min % 60;
     return d ? `${d} n ${h} ó` : h ? `${h} ó ${m} p` : `${m} p`;
+}
+
+const fmtLeft = ts => fmtDur(ts - Date.now() / 1000);
+
+// az adat ideje a forrás nevével (pl. „utolsó helyi Codex-futás 12:46 (2 ó 14 p óta)”)
+function tsNote(v) {
+    return `${v.tsLabel ?? 'adat'} ${fmtTime(v.ts)} (${fmtDur(Date.now() / 1000 - v.ts)} óta)`;
 }
 
 function limitLine(name, v) {
@@ -151,13 +160,16 @@ function limitLine(name, v) {
         let s = `${name}: – (${v.why})`;
         if (v.resetsAt)
             s += `, visszaállt ${fmtTime(v.resetsAt)}`;
+        if (v.ts)
+            s += ` · ${tsNote(v)}`;
         return s;
     }
-    let s = `${name}: maradt ${Math.round(v.left)}% (elhasználva ${Math.round(v.pct)}%)`;
+    let s = `${name}: ${v.stale ? 'RÉGI ADAT, ' : ''}maradt ${Math.round(v.left)}% (elhasználva ${Math.round(v.pct)}%)`;
     s += v.resetsAt ? ` · visszaáll ${fmtTime(v.resetsAt)} (${fmtLeft(v.resetsAt)} múlva)`
         : ' · visszaállás: ismeretlen';
-    if (v.ts)
-        s += ` · adat: ${fmtTime(v.ts)}`;
+    s += v.ts ? ` · ${tsNote(v)}` : ' · az adat ideje ismeretlen';
+    if (v.note)
+        s += ` · keretfigyelő: ${v.note}`;
     return s;
 }
 
@@ -200,11 +212,12 @@ const LimitsIndicator = GObject.registerClass(
 class LimitsIndicator extends PanelMenu.Button {
     _init() {
         super._init(0.5, 'Használati keretek', false);
-        this._data = {claude: readClaude(), codex: readCodex()};
+        this._data = readLimits();
         const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
         this._areas = METERS.map(([group, key, tag, rgb, , brand], i) => {
             const area = newArea(LIMIT_W, LIMIT_H,
-                (cr, w, h) => drawLimit(cr, w, h, this._data[group][key].left, tag, rgb, brand));
+                (cr, w, h) => drawLimit(cr, w, h, this._data[group][key].left, tag, rgb, brand,
+                    this._data[group][key].stale));
             // csoporton belül kis köz, Claude és Codex között nagyobb
             if (i > 0)
                 area.style = `margin-left: ${METERS[i - 1][0] === group ? 3 : 9}px;`;
@@ -215,8 +228,16 @@ class LimitsIndicator extends PanelMenu.Button {
 
         this._items = infoItems(this.menu, METERS.length);
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        this._srcItems = infoItems(this.menu, 2);
+        this._srcItems = infoItems(this.menu, 3);
         this._refreshText();
+
+        // azonnali frissítés: a keretfigyelő és a statusline állapotfájljainak mappája, és a Codex-mappák
+        // (codexWatchDirs; minden olvasás után újra beállítja, ha a legfrissebb napló mappája változott)
+        this._watchDelay = 0;
+        this._runMon = this._watch(GLib.path_get_dirname(CLAUDE_FILE));
+        this._codexDirs = '';
+        this._codexMons = [];
+        this._watchCodex();
 
         this._timer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, LIMIT_POLL_SEC, () => {
             this._poll();
@@ -228,17 +249,47 @@ class LimitsIndicator extends PanelMenu.Button {
         });
     }
 
+    _watch(dir) {
+        try {
+            const mon = Gio.File.new_for_path(dir).monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, null);
+            mon.connect('changed', () => {
+                if (!this._watchDelay) {
+                    this._watchDelay = GLib.timeout_add(GLib.PRIORITY_DEFAULT, WATCH_DELAY_MS, () => {
+                        this._watchDelay = 0;
+                        this._poll();
+                        return GLib.SOURCE_REMOVE;
+                    });
+                }
+            });
+            return mon;
+        } catch (e) {
+            logError(e, `kontextus-ikon: figyelés: ${dir}`);   // a 15 mp-es olvasás ilyenkor is megy
+            return null;
+        }
+    }
+
+    _watchCodex() {
+        const dirs = codexWatchDirs(CODEX_SESSIONS, this._data.codex.file);
+        if (dirs.join('\n') === this._codexDirs)
+            return;
+        this._codexMons.forEach(m => m?.cancel());
+        this._codexDirs = dirs.join('\n');
+        this._codexMons = dirs.map(d => this._watch(d));
+    }
+
     _poll() {
         const old = this._data;
         try {
-            this._data = {claude: readClaude(), codex: readCodex()};
+            this._data = readLimits();
         } catch (e) {
             logError(e, 'kontextus-ikon: keretek');
             return;
         }
+        this._watchCodex();
         METERS.forEach(([group, key], i) => {
-            const a = old[group][key].pct, b = this._data[group][key].pct;
-            if ((a === null) !== (b === null) || Math.round(a) !== Math.round(b))
+            const a = old[group][key], b = this._data[group][key];
+            if ((a.pct === null) !== (b.pct === null) || Math.round(a.pct) !== Math.round(b.pct) ||
+                Boolean(a.stale) !== Boolean(b.stale))
                 this._areas[i].queue_repaint();
         });
         this._refreshText();
@@ -249,8 +300,12 @@ class LimitsIndicator extends PanelMenu.Button {
             this._items[i].label.text = limitLine(name, this._data[group][key]);
         });
         const plan = this._data.codex.plan ? ` (${this._data.codex.plan})` : '';
-        this._srcItems[0].label.text = 'Claude: statusline (5h, heti) és a fiók /usage adata (Fable)';
-        this._srcItems[1].label.text = `Codex${plan}: ~/.codex/sessions, utolsó token_count`;
+        const fig = this._data.figyelo;
+        this._srcItems[0].label.text = 'Claude: statusline (5h, heti), a fiók /usage adata (Fable)' +
+            (fig.running ? ', és a keretfigyelő fiók-lekérdezése (mind)' : '');
+        this._srcItems[1].label.text = `Codex${plan}: ~/.codex/sessions, utolsó token_count (a gépen futó Codex CLI)` +
+            (fig.running ? ', és a keretfigyelő Codex app-server-lekérdezése' : '');
+        this._srcItems[2].label.text = figyeloStatus(fig, fmtTime);
     }
 
     destroy() {
@@ -262,6 +317,14 @@ class LimitsIndicator extends PanelMenu.Button {
             this.menu.disconnect(this._menuSig);
             this._menuSig = 0;
         }
+        if (this._watchDelay) {
+            GLib.source_remove(this._watchDelay);
+            this._watchDelay = 0;
+        }
+        this._runMon?.cancel();
+        this._codexMons.forEach(m => m?.cancel());
+        this._runMon = null;
+        this._codexMons = [];
         super.destroy();
     }
 });

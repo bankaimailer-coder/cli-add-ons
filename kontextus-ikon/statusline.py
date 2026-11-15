@@ -176,56 +176,151 @@ def fable_points(calls, key, v):
 
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 USAGE_CACHE = os.path.expanduser("~/.cache/claude-account-usage.json")
-USAGE_EVERY = 120  # seconds between account queries (the CLI's own /usage caches for 5 minutes)
+# seconds between account queries, shared by this statusline and the keretfigyelo service (one cache, one
+# setting; the CLI's own /usage caches for 5 minutes)
+USAGE_EVERY = 120
+USAGE_TIMEOUT = 3  # seconds, per query
 CREDENTIALS = os.path.expanduser("~/.claude/.credentials.json")
 LIMITS_FILE = "keretek.json"  # under $XDG_RUNTIME_DIR/kontextus-ikon/, read by the GNOME extension
+# account limit row kind -> window key (the 5-hour and the all-models weekly window)
+USAGE_KINDS = {"session": "five_hour", "weekly_all": "seven_day"}
+
+
+class UsageError(Exception):
+    """A failed account query; the message is a short reason for the user (never a token, header or body)."""
+
+
+def read_token(cred_path, now):
+    """The CLI's OAuth access token, read only (never refreshed, never written)."""
+    try:
+        with open(cred_path, encoding="utf-8") as f:
+            oauth = json.load(f)["claudeAiOauth"]
+        token = oauth["accessToken"]
+    except FileNotFoundError:
+        raise UsageError("nincs Claude-bejelentkezés") from None
+    except (OSError, ValueError, KeyError, TypeError):
+        raise UsageError("nincs Claude-bejelentkezés (hiányos hitelesítő fájl)") from None
+    if not isinstance(token, str) or not token:
+        raise UsageError("nincs Claude-bejelentkezés")
+    expires = oauth.get("expiresAt")
+    if isinstance(expires, (int, float)) and not isinstance(expires, bool) and expires / 1000 <= now:
+        raise UsageError("a Claude-bejelentkezés lejárt")
+    return token
+
+
+def parse_usage(data):
+    """The usage endpoint's limits[] as (rows, resets, windows): rows/resets are the per-model weekly rows
+    ({display name: percent}, {display name: reset ts}), windows the 5-hour and weekly window
+    ({"five_hour"|"seven_day": {"pct", "resets_at"}})."""
+    rows, resets, windows = {}, {}, {}
+    if not isinstance(data, dict):
+        raise UsageError("hibás válasz")
+    for row in data.get("limits") or []:
+        if not isinstance(row, dict) or row.get("percent") is None:
+            continue
+        kind = row.get("kind")
+        name = ((row.get("scope") or {}).get("model") or {}).get("display_name")
+        if kind == "weekly_scoped" and isinstance(name, str):
+            rows[name] = row["percent"]
+            reset = row_reset(row)
+            if reset:
+                resets[name] = reset
+        elif kind in USAGE_KINDS:
+            windows[USAGE_KINDS[kind]] = {"pct": row["percent"], "resets_at": row_reset(row)}
+    return rows, resets, windows
+
+
+def fetch_usage(cred_path, opener, now, timeout):
+    """One account query: (rows, resets, windows) or UsageError with the reason."""
+    import http.client
+    import urllib.error
+    import urllib.request
+    token = read_token(cred_path, now)
+    req = urllib.request.Request(USAGE_URL, headers={
+        "Authorization": f"Bearer {token}",
+        "anthropic-beta": "oauth-2025-04-20",
+        "Content-Type": "application/json",
+    })
+    try:
+        with opener(req, timeout=timeout) as r:
+            data = json.load(r)
+    except urllib.error.HTTPError as e:
+        e.close()  # the body is never read or logged
+        if e.code == 401:
+            raise UsageError("a Claude-bejelentkezés lejárt (401)") from None
+        raise UsageError(f"a fiók-lekérdezés hibát adott (HTTP {e.code})") from None
+    except (urllib.error.URLError, OSError, http.client.HTTPException) as e:  # pl. félbeszakadt törzs
+        raise UsageError(f"hálózati hiba ({type(e).__name__})") from None
+    except ValueError:
+        raise UsageError("hibás válasz (nem JSON)") from None
+    try:
+        return parse_usage(data)
+    except (AttributeError, TypeError, KeyError, ValueError) as e:  # megváltozott séma
+        raise UsageError(f"hibás válasz (ismeretlen formátum: {type(e).__name__})") from None
+
+
+def read_usage_cache(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            c = json.load(f)
+        float(c["at"])
+        return c
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def account_usage(now=None, *, cred_path=None, cache_path=None, opener=None, wait=False,
+                  timeout=USAGE_TIMEOUT):
+    """The account's usage rows from the shared cache, queried at most every USAGE_EVERY seconds:
+    {"at", "ok_at", "rows", "resets", "windows", "why"}. ok_at: time of the last successful query
+    (None if none yet); why: the reason of the last failed query (None after a success). A failed query
+    keeps the last good values. One query at a time across processes (lock file next to the cache):
+    wait=False (statusline) returns the current cache instead of waiting, wait=True (keretfigyelo) waits."""
+    import fcntl
+    now = time.time() if now is None else now
+    cred_path = cred_path or CREDENTIALS
+    cache_path = cache_path or USAGE_CACHE
+    if opener is None:
+        import urllib.request
+        opener = urllib.request.urlopen
+    c = read_usage_cache(cache_path)
+    if c and now - c["at"] < USAGE_EVERY:
+        return c
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    with open(cache_path + ".lock", "a", encoding="utf-8") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX if wait else fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:  # another process is querying right now
+            return c or {"at": None, "ok_at": None, "rows": None, "resets": {}, "windows": {},
+                         "why": "a lekérdezés folyamatban"}
+        c = read_usage_cache(cache_path)
+        if c and now - c["at"] < USAGE_EVERY:
+            return c
+        try:
+            rows, resets, windows = fetch_usage(cred_path, opener, now, timeout)
+            new = {"at": now, "ok_at": now, "rows": rows, "resets": resets, "windows": windows, "why": None}
+        except UsageError as e:  # keep the last good values on a failed query
+            c = c or {}
+            new = {"at": now, "ok_at": c.get("ok_at", c.get("at") if c.get("rows") is not None else None),
+                   "rows": c.get("rows"), "resets": c.get("resets") or {}, "windows": c.get("windows") or {},
+                   "why": str(e)}
+        tmp = f"{cache_path}.{os.getpid()}.tmp"
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(new, f)
+            os.replace(tmp, cache_path)
+        except OSError:
+            pass
+    return new
 
 
 def account_model_rows():
     """Per-model weekly limits of the account as ({display name: percent}, {display name: reset ts},
     time of the last successful query), the same rows /usage shows as 'Current week (<model>)'.
     Queried from the endpoint the CLI, VS Code and the web app use, with the CLI's own OAuth token;
-    cached, and (None, {}, None) if it can't be fetched."""
-    now = time.time()
-    try:
-        with open(USAGE_CACHE, encoding="utf-8") as f:
-            c = json.load(f)
-        if now - c["at"] < USAGE_EVERY:
-            return c["rows"], c.get("resets") or {}, c.get("ok_at", c["at"] if c["rows"] is not None else None)
-    except (OSError, ValueError, KeyError, TypeError):
-        c = None
-    try:
-        import urllib.request
-        with open(CREDENTIALS, encoding="utf-8") as f:
-            token = json.load(f)["claudeAiOauth"]["accessToken"]
-        req = urllib.request.Request(USAGE_URL, headers={
-            "Authorization": f"Bearer {token}",
-            "anthropic-beta": "oauth-2025-04-20",
-            "Content-Type": "application/json",
-        })
-        with urllib.request.urlopen(req, timeout=3) as r:
-            data = json.load(r)
-        rows, resets = {}, {}
-        for row in data.get("limits") or []:
-            name = ((row.get("scope") or {}).get("model") or {}).get("display_name")
-            if row.get("kind") == "weekly_scoped" and isinstance(name, str) and row.get("percent") is not None:
-                rows[name] = row["percent"]
-                reset = row_reset(row)
-                if reset:
-                    resets[name] = reset
-        ok_at = now
-    except Exception:  # keep the last good value on a failed query
-        rows = c["rows"] if c else None
-        resets = (c.get("resets") or {}) if c else {}
-        ok_at = c.get("ok_at") if c else None
-    try:
-        tmp = f"{USAGE_CACHE}.{os.getpid()}.tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"at": now, "rows": rows, "resets": resets, "ok_at": ok_at}, f)
-        os.replace(tmp, USAGE_CACHE)
-    except OSError:
-        pass
-    return rows, resets, ok_at
+    cached (account_usage), and (None, {}, None) if it can't be fetched."""
+    c = account_usage()
+    return c.get("rows"), c.get("resets") or {}, c.get("ok_at")
 
 
 def row_reset(row):

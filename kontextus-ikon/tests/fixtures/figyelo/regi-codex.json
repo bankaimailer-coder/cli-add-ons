@@ -1,0 +1,6 @@
+{"ts": 1794747410, "started": 1794746000, "pid": 4242,
+ "claude": {"why": null, "ok_at": null},
+ "codex": {"why": "a Codex app-server kilépett (kód 1)", "ok_at": 1794746160, "plan": "plus",
+   "five_hour": {"pct": 10, "resets_at": 1794756480, "ts": 1794746160, "window_minutes": 300, "source": "app-server"},
+   "weekly": {"pct": 40, "resets_at": 1795005960, "ts": 1794746160, "window_minutes": 10080, "source": "app-server"}},
+ "every": {"claude": 120, "codex": 60, "heartbeat": 30}}

@@ -1,0 +1,17 @@
+# Kontextus-ikon keretfigyelő: systemd felhasználói egység sablonja. Az install.sh tölti ki a @...@ helyeket
+# (a klón útvonala, a python3 és a telepítéskori PATH, a systemd szabályai szerint idézve), és a
+# ~/.config/systemd/user/kontextus-keretfigyelo.service fájlba írja. Kézzel ne szerkeszd a kitöltött példányt:
+# a telepítő újraírja.
+[Unit]
+Description=Kontextus-ikon keretfigyelő (Claude- és Codex-keret a GNOME-sávnak)
+
+[Service]
+Type=simple
+ExecStart=@PYTHON@ @SCRIPT@
+Environment=@PATHENV@
+Restart=on-failure
+RestartSec=30
+Nice=10
+
+[Install]
+WantedBy=default.target
