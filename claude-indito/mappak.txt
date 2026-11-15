@@ -1,31 +1,34 @@
-# A Claude indító választóablakában megjelenő mappák, soronként egy: Név | mappa
+# A Claude indító választóablakában megjelenő mappák, soronként egy: Név | mappa | szín
 # A ~ a saját mappádat jelenti. A #-sal kezdődő és az üres sorok nem számítanak.
 # A nem létező mappákat az indító kihagyja, így egy fájl több gépen is működik.
+# A szín (#rrggbb, sötét háttér) nem kötelező; ha hiányzik, a névből számolt szín lesz.
+# Az azonos nevű sorok (kis- és nagybetű nem számít) ugyanazt a profilt és színt kapják.
+# Színváltozás után: python3 szinprofil.py telepit
 
 # bfuzzee gép (~/AI PROJECTS)
-CLI ADD-ONS | ~/AI PROJECTS/cli-add-ons
-FREEFLOW | ~/AI PROJECTS/FREEFLOW
-FREEFLOWBJJ WEB APP | ~/AI PROJECTS/freeflowbjj-web-app
-ACADEMY BOOKING | ~/AI PROJECTS/ACADEMY-BOOKING
-BJJ MIND PALACE | ~/AI PROJECTS/BJJ-Mind-Palace
-AI UNI JEGYZETEK | ~/AI PROJECTS/ai-uni-jegyzetek
-CODING TUTOR | ~/AI PROJECTS/coding-tutor-app
-CT NEW | ~/AI PROJECTS/ct-new
-DIGITAL ART GALERY | ~/AI PROJECTS/digital-art-galery
-FOUNDRY VTT CAMPAIGN | ~/AI PROJECTS/foundry-vtt-campaign
-VTT | ~/AI PROJECTS/vtt
-GAME DEVELOPMENT | ~/AI PROJECTS/game-development
-HANNA APPLICATIONS | ~/AI PROJECTS/Hanna-Applications
+CLI ADD-ONS            | ~/AI PROJECTS/cli-add-ons                | #1a3a7a
+FREEFLOW               | ~/AI PROJECTS/FREEFLOW                   | #7a1a1a
+FREEFLOWBJJ WEB APP    | ~/AI PROJECTS/freeflowbjj-web-app        | #1a5a26
+ACADEMY BOOKING        | ~/AI PROJECTS/ACADEMY-BOOKING            | #4a2378
+BJJ MIND PALACE        | ~/AI PROJECTS/BJJ-Mind-Palace            | #0f5257
+AI UNI JEGYZETEK       | ~/AI PROJECTS/ai-uni-jegyzetek           | #7a3a0a
+CODING TUTOR           | ~/AI PROJECTS/coding-tutor-app           | #761a5c
+CT NEW                 | ~/AI PROJECTS/ct-new                     | #4f4f0f
+DIGITAL ART GALERY     | ~/AI PROJECTS/digital-art-galery         | #0f4a6e
+FOUNDRY VTT CAMPAIGN   | ~/AI PROJECTS/foundry-vtt-campaign       | #4a3020
+VTT                    | ~/AI PROJECTS/vtt                        | #26236a
+GAME DEVELOPMENT       | ~/AI PROJECTS/game-development           | #5c0f2e
+HANNA APPLICATIONS     | ~/AI PROJECTS/Hanna-Applications         | #3a3f48
 
 # bfwork gép (~/work)
-CRM REBUILD | ~/work/soborbo_crm_rebuild
-CLI ADD-ONS | ~/work/cli-add-ons
-SOBORBO CRM | ~/work/Soborbo/soborbo-crm
-NEMESVENTILATOR | ~/work/Soborbo/nemesventilatorhaz
-EMAGINE WEBAPP V2 | ~/work/emagine-webapp-V2
-BUDAIGRAPPLING | ~/work/budaigrappling
-Claude Code Setup | ~/work/claude-code-setup
-FUTUREBIKE CRM | ~/work/futurebike-crm
+CRM REBUILD            | ~/work/soborbo_crm_rebuild               | #1f5a46
+CLI ADD-ONS            | ~/work/cli-add-ons                       | #1a3a7a
+SOBORBO CRM            | ~/work/Soborbo/soborbo-crm               | #6a5410
+NEMESVENTILATOR        | ~/work/Soborbo/nemesventilatorhaz        | #7a3a3a
+EMAGINE WEBAPP V2      | ~/work/emagine-webapp-V2                 | #3a1a3a
+BUDAIGRAPPLING         | ~/work/budaigrappling                    | #0d1b3d
+Claude Code Setup      | ~/work/claude-code-setup                 | #0a3640
+FUTUREBIKE CRM         | ~/work/futurebike-crm                    | #0b2e16
 
 # további ~/work repók; a sor elejéről a # törlésével kerülnek be
 # CRM LAB | ~/work/soborbo_crm_rebuild/crm-lab
@@ -54,8 +57,8 @@ FUTUREBIKE CRM | ~/work/futurebike-crm
 # FREEFLOWBJJ WEB APP | ~/work/freeflowbjj-web-app
 
 # másik gép (~/projects)
-NEMESVENTILATOR | ~/projects/Soborbo/nemesventilatorhaz
-CLI EXTENSIONS | ~/projects/cli-extensions
-Claude Code Setup | ~/projects/claude-code-setup
-Sys Recovery & Repair | ~/projects/System-Recovery-and-Repair
-Soborbo CRM | ~/projects/Soborbo CRM/soborbo-leads
+NEMESVENTILATOR        | ~/projects/Soborbo/nemesventilatorhaz    | #7a3a3a
+CLI EXTENSIONS         | ~/projects/cli-extensions                | #6a3a5a
+Claude Code Setup      | ~/projects/claude-code-setup             | #0a3640
+Sys Recovery & Repair  | ~/projects/System-Recovery-and-Repair    | #1c1c1c
+Soborbo CRM            | ~/projects/Soborbo CRM/soborbo-leads     | #6a5410
