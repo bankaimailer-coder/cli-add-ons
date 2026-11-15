@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-"""Claude Code statusline: kiírja a használati kereteket (5 órás, heti), mindkettő mellé a Fable 5.2
-becsült részét, és a futó subagentek közül a legnagyobb kontextust (agentenként, nem összegezve)."""
+"""Claude Code statusline: kiírja a használati kereteket (5 órás, heti), a fiók Fable heti keretét
+(ha az nem kérdezhető le, a Fable 5.2 becsült részét), és a futó subagentek közül a legnagyobb kontextust
+(agentenként, nem összegezve). A kereteket a GNOME-bővítmény mérőinek is kiírja:
+$XDG_RUNTIME_DIR/kontextus-ikon/keretek.json."""
 
 import datetime
 import glob
@@ -176,21 +178,22 @@ USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 USAGE_CACHE = os.path.expanduser("~/.cache/claude-account-usage.json")
 USAGE_EVERY = 120  # seconds between account queries (the CLI's own /usage caches for 5 minutes)
 CREDENTIALS = os.path.expanduser("~/.claude/.credentials.json")
+LIMITS_FILE = "keretek.json"  # under $XDG_RUNTIME_DIR/kontextus-ikon/, read by the GNOME extension
 
 
 def account_model_rows():
-    """Per-model weekly limits of the account ({display name: percent}), the same rows /usage shows
-    as 'Current week (<model>)'. Queried from the endpoint the CLI, VS Code and the web app use,
-    with the CLI's own OAuth token; cached, and None if it can't be fetched."""
+    """Per-model weekly limits of the account as ({display name: percent}, {display name: reset ts},
+    time of the last successful query), the same rows /usage shows as 'Current week (<model>)'.
+    Queried from the endpoint the CLI, VS Code and the web app use, with the CLI's own OAuth token;
+    cached, and (None, {}, None) if it can't be fetched."""
     now = time.time()
     try:
         with open(USAGE_CACHE, encoding="utf-8") as f:
             c = json.load(f)
         if now - c["at"] < USAGE_EVERY:
-            return c["rows"]
+            return c["rows"], c.get("resets") or {}, c.get("ok_at", c["at"] if c["rows"] is not None else None)
     except (OSError, ValueError, KeyError, TypeError):
         c = None
-    rows = None
     try:
         import urllib.request
         with open(CREDENTIALS, encoding="utf-8") as f:
@@ -202,21 +205,80 @@ def account_model_rows():
         })
         with urllib.request.urlopen(req, timeout=3) as r:
             data = json.load(r)
-        rows = {}
+        rows, resets = {}, {}
         for row in data.get("limits") or []:
             name = ((row.get("scope") or {}).get("model") or {}).get("display_name")
             if row.get("kind") == "weekly_scoped" and isinstance(name, str) and row.get("percent") is not None:
                 rows[name] = row["percent"]
-    except Exception:
-        rows = c["rows"] if c else None  # keep the last good value on a failed query
+                reset = row_reset(row)
+                if reset:
+                    resets[name] = reset
+        ok_at = now
+    except Exception:  # keep the last good value on a failed query
+        rows = c["rows"] if c else None
+        resets = (c.get("resets") or {}) if c else {}
+        ok_at = c.get("ok_at") if c else None
     try:
         tmp = f"{USAGE_CACHE}.{os.getpid()}.tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"at": now, "rows": rows}, f)
+            json.dump({"at": now, "rows": rows, "resets": resets, "ok_at": ok_at}, f)
         os.replace(tmp, USAGE_CACHE)
     except OSError:
         pass
-    return rows
+    return rows, resets, ok_at
+
+
+def row_reset(row):
+    """Reset time of an account limit row as a unix timestamp, if the row carries one."""
+    for key in ("resets_at", "reset_at", "resetsAt"):
+        v = row.get(key)
+        if v is None:
+            v = (row.get("window") or {}).get(key)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            return v / 1000 if v > 1e12 else v
+        if isinstance(v, str):
+            try:
+                return datetime.datetime.fromisoformat(v.replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                pass
+    return None
+
+
+def write_limits_state(rl, rows, resets, ok_at):
+    """Writes the limits for the GNOME extension's meters to $XDG_RUNTIME_DIR/kontextus-ikon/keretek.json:
+    {"ts", "claude": {"five_hour"|"seven_day"|"fable": {"pct", "resets_at", "ts", "source"}}}.
+    A window this call did not get is kept from the previous file until its reset time."""
+    run = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    path = os.path.join(run, "kontextus-ikon", LIMITS_FILE)
+    now = time.time()
+    try:
+        with open(path, encoding="utf-8") as f:
+            old = json.load(f).get("claude") or {}
+    except (OSError, ValueError, AttributeError):
+        old = {}
+    new = {}
+    for key in ("five_hour", "seven_day"):
+        v = rl.get(key)
+        if isinstance(v, dict) and v.get("used_percentage") is not None:
+            new[key] = {"pct": v["used_percentage"], "resets_at": v.get("resets_at"),
+                        "ts": now, "source": "statusline"}
+    fable = next((n for n in (rows or {}) if "fable" in n.lower()), None)
+    if fable is not None and ok_at:
+        new["fable"] = {"pct": rows[fable], "resets_at": resets.get(fable), "ts": ok_at,
+                        "source": "fiók", "name": fable}
+    else:
+        for key, v in rl.items():
+            if "fable" in key.lower() and isinstance(v, dict) and v.get("used_percentage") is not None:
+                new["fable"] = {"pct": v["used_percentage"], "resets_at": v.get("resets_at"),
+                                "ts": now, "source": "statusline"}
+    for key, v in old.items():
+        if key not in new and isinstance(v, dict) and (v.get("resets_at") or 0) > now:
+            new[key] = v
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"ts": now, "claude": new}, f)
+    os.replace(tmp, path)
 
 
 def main():
@@ -233,9 +295,13 @@ def main():
     rl = d.get("rate_limits") or {}
     parts = []
     try:
-        model_rows = account_model_rows()
+        model_rows, model_resets, model_ok_at = account_model_rows()
     except Exception:
-        model_rows = None
+        model_rows, model_resets, model_ok_at = None, {}, None
+    try:
+        write_limits_state(rl, model_rows, model_resets, model_ok_at)
+    except Exception:
+        pass
     calls = None
     for key, v in rl.items():
         if isinstance(v, dict) and v.get("used_percentage") is not None:
