@@ -8,7 +8,8 @@ Két része van:
   kontextusát, 500k tokennél értesítést küld, és D-Bus-on (`hu.bfuzzee.KontextusIkon`) átadja az adatokat.
 - `gnome-extension/kontextus@kontextus-ikon`: GNOME Shell-bővítmény, amely kirajzolja:
   - a kontextusmérőket a sáv bal oldalán, az ablakválasztó után (terminálonként egy körív és a szám);
-  - a memória-chipet a jobb oldalon, közvetlenül a rendszerikonok (mikrofon, Wi-Fi, akku) előtt, benne a százalékkal;
+  - a jobb oldalon, a rendszerikonok (mikrofon, Wi-Fi, akku) előtt: az öt keretmérőt (Claude 5 órás, heti, Fable;
+    Codex 5 órás, heti), a hőmérőt és a memória-chipet, benne a százalékkal;
   - és végrehajtja az ablakugrást („Ugrás a terminálba” a kontextusmérő menüjében).
 
 ## Telepítés
@@ -55,10 +56,43 @@ című Ptyxis-ablakot, majd az eredeti cím visszaáll. Ha a session egy ablak n
 Memória-chip: mindig látszik; a használt memória (MemTotal - MemAvailable, mint a `free`) százalékban.
 A rajza a `chip.js`-ben, a kontextusmérőé a `gauge.js`-ben van.
 
+Keretmérők: öt keskeny mérő egymás mellett. Mindegyiken bal oldalt függőleges sáv telik alulról, mellette fent
+egy apró jel (`5h` = 5 órás, `H` = heti, `F` = Fable heti), alatta a felhasznált százalék száma. A Claude-mérők jele
+narancs, a Codexéi kékek, a két csoport között nagyobb a köz. A sáv 75%-tól sárga, 90%-tól piros. Ha egy adat
+nincs meg (nincs forrás, elavult, vagy az ablak azóta visszaállt), a mérő szürke keret és „–”, becsült számot nem
+mutat. Kattintásra a menü mérőnként kiírja a százalékot, a visszaállás idejét (és hogy mennyi van hátra), az adat
+idejét, illetve a „nincs adat” okát. 15 másodpercenként frissül; a rajz a `meter.js`-ben, az olvasás a `limits.js`-ben.
+
+- Claude 5 órás és heti: a Claude Code a statusline-nak adja át (`rate_limits.five_hour` / `seven_day`, `resets_at`-tel).
+  A `statusline.py` ezeket kiírja a `$XDG_RUNTIME_DIR/kontextus-ikon/keretek.json` fájlba; amelyik ablakot egy
+  hívás nem kapja meg, azt a visszaállásáig megtartja. Csak akkor frissül, amikor fut Claude Code terminál.
+- Claude Fable heti: a fiók `/usage` adata (`api/oauth/usage`, lásd lent), ugyanabba a fájlba. Visszaállási időt
+  csak akkor mutat, ha a válasz sora tartalmaz ilyet; visszaállási idő nélkül 3 óráig érvényes.
+- Codex 5 órás és heti: a Codex CLI a session-naplóba (`~/.codex/sessions/ÉÉÉÉ/HH/NN/*.jsonl`) minden
+  `token_count` eseménnyel kiírja a `rate_limits` mezőt (`primary`/`secondary`: `used_percent`, `window_minutes`,
+  `resets_at`). A bővítmény a legfrissebb fájlok végéből a legutolsót olvassa; az ablakot a hossza alapján
+  választja (300 perc = 5 órás, 10080 perc = heti). Csak olvas, a `~/.codex` többi tartalmához (pl. `auth.json`)
+  nem nyúl. Az adat a legutolsó Codex-futás pillanatképe.
+
+Hőmérők: a keretmérők és a memória-chip között, a CPU és a GPU külön. Az ikon egy chip-foglalat (dupla keret,
+oldalanként 4 láb), benne fordulatszámmérő mutatóval és jobb oldalt lánggal; a CPU-é steelblue (`#4682b4`), a
+GPU-é cián (`#00ffff`). Mellette a hőmérséklet: a CPU-nál a 30 másodperces medián (ebből számol a hőfigyelő
+szintje), a GPU-nál a pillanatnyi érték. A szám színe a szint: rendben fehér, meleg sárga, forró és kritikus piros.
+Egy mérő csak akkor színeződik, ha a saját értéke is eléri a szint kilépési küszöbét (a `hofigyelo.py`
+`CPU_TH`/`GPU_TH` értékei), így a hűvösebb eszköz nem pirosodik a másik miatt. A menüben a részletek (CPU: medián,
+pillanatnyi, ACPI; GPU: érték), a szint és az állapotfájl időbélyege. Forrás: a `hofigyelo.service` állapotfájlja
+(`$XDG_RUNTIME_DIR/hofigyelo/state.json`, csak olvasás); ha hiányzik vagy 30 másodpercnél régebbi, mindkét mérő
+szürke „–”. Ha a GPU alszik (nincs `gpu_c`), a GPU-mérő marad a helyén, „nincs adat” állapotban. 5 másodpercenként
+frissül; az ikon vektoros (Cairo), a panelmérethez és a HiDPI-hez skálázódik.
+
 CLI-sor: a `statusline.py` (a `~/.claude/settings.json` `statusLine` bejegyzése, így minden Claude Code terminálban)
 kiírja az 5 órás és a heti keret kihasználtságát, mindkettő mellé a Fable 5.2 becsült részét, pl.
 „5 órás: 18% (ebből Fable 5.2: ~12%) | heti: 83% (ebből Fable 5.2: ~23%)”. A zárójeles szám azt mutatja, hogy a
 keret felhasznált százalékából mennyi ment Fable 5.2-re.
+
+A fiók Fable heti keretét a statusline a `/usage` mögötti végpontról kéri le (`api/oauth/usage`, a CLI saját
+OAuth-tokenjével, 2 perces gyorsítótár: `~/.cache/claude-account-usage.json`), és „Fable heti: N%” formában írja ki.
+A becslés csak akkor jelenik meg, ha ez a lekérdezés nem sikerül.
 
 A Fable-rész becslés: külön Fable-keretet a Claude Code nem ad át, ezért a sor a gép helyi transcriptjeiből
 (`~/.claude/projects`) számol. Az adott időablak modellhívásait API-listaáron súlyozza (`PRICES` a `statusline.py`
