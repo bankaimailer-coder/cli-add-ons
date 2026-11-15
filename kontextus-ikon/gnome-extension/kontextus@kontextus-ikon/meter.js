@@ -1,6 +1,7 @@
 // Keretmérő és hőmérő rajza (cairo + Pango), shell nélkül is futtatható.
-// Keretmérő: bal oldalt függőleges sáv, amely alulról telik; mellette fent apró színes jel
-// (5h / H / F), alatta a százalék száma. Nincs adat: üres szürke keret és „–”.
+// Keretmérő: bal oldalt a márka ikonja (Claude-csillag / OpenAI-csomó), amely alulról a megmaradt
+// keret arányáig teli; mellette fent apró jel (5h / H / F), alatta a megmaradt százalék.
+// Nincs adat: szürke ikon és „–”.
 // Hőmérők (CPU és GPU külön): chip-foglalatba rajzolt fordulatszámmérő lánggal, mellette a fok.
 import Pango from 'gi://Pango';
 import PangoCairo from 'gi://PangoCairo';
@@ -8,13 +9,12 @@ import PangoCairo from 'gi://PangoCairo';
 const FONT = 'Ubuntu Sans Condensed Bold';
 const WHITE = [1, 1, 1];
 const GRAY = [0.6, 0.6, 0.59];
-const TRACK = [0.87, 0.87, 0.85, 0.3];
 
 export const CLAUDE_RGB = [0.91, 0.58, 0.44];    // Claude-narancs
-export const CODEX_RGB = [0.42, 0.71, 1.0];      // Codex-kék
-const WARN_RGB = [0.96, 0.83, 0.18];             // 75% fölött
-const FULL_RGB = [0.88, 0.11, 0.14];             // 90% fölött
-export const CPU_RGB = [0x46 / 255, 0x82 / 255, 0xb4 / 255];   // #4682b4 steelblue
+export const CODEX_RGB = [0.94, 0.94, 0.92];     // Codex: törtfehér (a narancstól, lilától, ciántól is elüt)
+const WARN_RGB = [0.96, 0.83, 0.18];             // 25% maradék alatt
+const FULL_RGB = [0.88, 0.11, 0.14];             // 10% maradék alatt
+export const CPU_RGB = [0xc0 / 255, 0x84 / 255, 0xfc / 255];   // #c084fc világoslila
 export const GPU_RGB = [0, 1, 1];                               // #00ffff cyan
 
 // szöveg kitöltött útvonalként, a (x, y, w, h) dobozba illesztve; align: 0 bal, 0.5 közép
@@ -37,39 +37,82 @@ function drawText(cr, text, x, y, w, h, rgb, maxSize, align = 0.5) {
     cr.fill();
 }
 
-// cr: cairo Context, w × h: rajzterület pixelben, pct: 0-100 vagy null, tag: '5h' | 'H' | 'F',
-// rgb: a mérő (szolgáltató) színe
-export function drawLimit(cr, w, h, pct, tag, rgb) {
-    const none = pct === null || pct === undefined;
-    const frac = none ? 0 : Math.max(0, Math.min(1, pct / 100));
-    const bw = Math.max(4, Math.round(w * 0.22));
-    const lw = Math.max(1, Math.round(h / 20));
+// Claude-logó egyszerűsítve: középről kiinduló, végükön lekerekített sugarak, kissé eltérő hosszal;
+// s × s pixelben, a már beállított forrásszínnel
+const CLAUDE_RAYS = [1, 0.8, 0.95, 0.76, 1, 0.84, 0.92, 0.78, 0.98, 0.82, 0.9];
+function claudePath(cr, s) {
+    const c = s / 2, lw = Math.max(1.3, s * 0.13);
+    cr.setLineCap(1);                          // ROUND
+    cr.setLineWidth(lw);
+    CLAUDE_RAYS.forEach((len, i) => {
+        const a = -Math.PI / 2 + i * 2 * Math.PI / CLAUDE_RAYS.length;
+        const r = (s / 2 - lw / 2) * len;
+        cr.moveTo(c + Math.cos(a) * s * 0.04, c + Math.sin(a) * s * 0.04);
+        cr.lineTo(c + Math.cos(a) * r, c + Math.sin(a) * r);
+    });
+    cr.stroke();
+    cr.setLineCap(0);
+}
 
-    // sáv: pálya, kitöltés alulról; nincs adat: csak szürke keret
-    if (none) {
-        cr.rectangle(lw / 2, lw / 2, bw - lw, h - lw);
-        cr.setLineWidth(lw);
-        cr.setSourceRGB(...GRAY);
-        cr.stroke();
-    } else {
-        cr.rectangle(0, 0, bw, h);
-        cr.setSourceRGBA(...TRACK);
-        cr.fill();
+// OpenAI-csomó egyszerűsítve: hat lekerekített szem, 60°-onként elforgatva, középen hatszögű
+// nyílással; körvonalként rajzolva
+function openaiPath(cr, s) {
+    const c = s / 2, lw = Math.max(1.1, s * 0.06);
+    const R = s / 2 - lw / 2;
+    const L = R * 0.9, W = R * 0.36;           // egy szem hossza és szélessége (középvonalon)
+    cr.setLineWidth(lw);
+    for (let k = 0; k < 6; k++) {
+        cr.save();
+        cr.translate(c, c);
+        cr.rotate(k * Math.PI / 3);
+        // a szem kifelé tolva és megdöntve, így a szomszédok átfedik egymást
+        cr.translate(R * 0.25, -R * 0.35);
+        cr.rotate(0.52);
+        roundRect(cr, -L / 2, -W / 2, L, W, W / 2 - 0.01);
+        cr.restore();
     }
-    if (frac > 0) {
-        const fill = pct >= 90 ? FULL_RGB : pct >= 75 ? WARN_RGB : rgb;
-        const top = Math.round(h * (1 - frac));
-        cr.rectangle(0, top, bw, h - top);
-        cr.setSourceRGB(...fill);
-        cr.fill();
-    }
+    cr.stroke();
+}
+
+const BRANDS = {claude: claudePath, openai: openaiPath};
+
+// márkaikon, alulról a frac (0-1) arányáig teli; fölötte halvány tónus, hogy a forma mindig látsszon.
+// frac === null: nincs adat, szürke forma. rgb: a halvány rész (márkaszín), fill: a teli rész színe
+function drawBrand(cr, s, brand, frac, rgb, fill) {
+    const path = BRANDS[brand];
+    cr.save();
+    if (frac === null)
+        cr.setSourceRGBA(...GRAY, 0.8);
+    else
+        cr.setSourceRGBA(...rgb, 0.3);
+    path(cr, s);
+    cr.restore();
+    if (!frac)
+        return;
+    cr.save();
+    const top = s * (1 - frac);
+    cr.rectangle(-1, top, s + 2, s - top + 1);
+    cr.clip();
+    cr.setSourceRGB(...fill);
+    path(cr, s);
+    cr.restore();
+}
+
+// Keretmérő. cr: cairo Context, w × h: rajzterület pixelben, left: a MEGMARADT keret 0-100 vagy null,
+// tag: '5h' | 'H' | 'F', rgb: a márka színe, brand: 'claude' | 'openai'.
+// 25% maradék alatt sárga, 10% alatt piros (az ikon kitöltése és a szám is).
+export function drawLimit(cr, w, h, left, tag, rgb, brand) {
+    const none = left === null || left === undefined;
+    const warn = none ? null : left < 10 ? FULL_RGB : left < 25 ? WARN_RGB : null;
+    drawBrand(cr, h, brand, none ? null : Math.max(0, Math.min(1, left / 100)), rgb, warn ?? rgb);
 
     // jel fent, szám lent
-    const tx = bw + Math.max(1, Math.round(w * 0.06));
+    const tx = h + Math.max(1, Math.round(h * 0.1));
     const tw = w - tx;
     const tagH = Math.round(h * 0.38);
     drawText(cr, tag, tx, 0, tw, tagH, none ? GRAY : rgb, tagH * 1.25);
-    drawText(cr, none ? '–' : String(Math.round(pct)), tx, tagH, tw, h - tagH, none ? GRAY : WHITE, (h - tagH) * 1.3);
+    drawText(cr, none ? '–' : String(Math.round(left)), tx, tagH, tw, h - tagH,
+        none ? GRAY : warn ?? WHITE, (h - tagH) * 1.3);
 }
 
 function roundRect(cr, x, y, w, h, r) {

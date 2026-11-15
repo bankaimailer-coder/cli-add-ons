@@ -20,7 +20,7 @@ import {readClaude, readCodex, readHeat, HEAT_LEVELS} from './limits.js';
 const MEM_POLL_SEC = 3;
 const LIMIT_POLL_SEC = 15;
 const HEAT_POLL_SEC = 5;
-const LIMIT_W = 22, LIMIT_H = 20;   // keretmérő, logikai pixel
+const LIMIT_W = 36, LIMIT_H = 20;   // keretmérő (négyzetes márkaikon + jel és szám), logikai pixel
 const HEAT_W = 38;                  // hőmérő: négyzetes ikon + a fok
 const CHIP_W = 22, CHIP_H = 16;   // logikai pixel
 const GAUGE_SIZE = 16;
@@ -153,7 +153,7 @@ function limitLine(name, v) {
             s += `, visszaállt ${fmtTime(v.resetsAt)}`;
         return s;
     }
-    let s = `${name}: ${Math.round(v.pct)}%`;
+    let s = `${name}: maradt ${Math.round(v.left)}% (elhasználva ${Math.round(v.pct)}%)`;
     s += v.resetsAt ? ` · visszaáll ${fmtTime(v.resetsAt)} (${fmtLeft(v.resetsAt)} múlva)`
         : ' · visszaállás: ismeretlen';
     if (v.ts)
@@ -188,12 +188,12 @@ function infoItems(menu, n) {
     return items;
 }
 
-const METERS = [   // [csoport, kulcs, jel, szín, menünév]
-    ['claude', 'fiveHour', '5h', CLAUDE_RGB, 'Claude 5 órás'],
-    ['claude', 'weekly', 'H', CLAUDE_RGB, 'Claude heti'],
-    ['claude', 'fable', 'F', CLAUDE_RGB, 'Claude Fable heti'],
-    ['codex', 'fiveHour', '5h', CODEX_RGB, 'Codex 5 órás'],
-    ['codex', 'weekly', 'H', CODEX_RGB, 'Codex heti'],
+const METERS = [   // [csoport, kulcs, jel, szín, menünév, ikon]
+    ['claude', 'fiveHour', '5h', CLAUDE_RGB, 'Claude 5 órás', 'claude'],
+    ['claude', 'weekly', 'H', CLAUDE_RGB, 'Claude heti', 'claude'],
+    ['claude', 'fable', 'F', CLAUDE_RGB, 'Claude Fable heti', 'claude'],
+    ['codex', 'fiveHour', '5h', CODEX_RGB, 'Codex 5 órás', 'openai'],
+    ['codex', 'weekly', 'H', CODEX_RGB, 'Codex heti', 'openai'],
 ];
 
 const LimitsIndicator = GObject.registerClass(
@@ -202,9 +202,9 @@ class LimitsIndicator extends PanelMenu.Button {
         super._init(0.5, 'Használati keretek', false);
         this._data = {claude: readClaude(), codex: readCodex()};
         const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
-        this._areas = METERS.map(([group, key, tag, rgb], i) => {
+        this._areas = METERS.map(([group, key, tag, rgb, , brand], i) => {
             const area = newArea(LIMIT_W, LIMIT_H,
-                (cr, w, h) => drawLimit(cr, w, h, this._data[group][key].pct, tag, rgb));
+                (cr, w, h) => drawLimit(cr, w, h, this._data[group][key].left, tag, rgb, brand));
             // csoporton belül kis köz, Claude és Codex között nagyobb
             if (i > 0)
                 area.style = `margin-left: ${METERS[i - 1][0] === group ? 3 : 9}px;`;

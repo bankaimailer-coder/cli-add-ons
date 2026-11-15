@@ -3,7 +3,8 @@
 //  - Codex: a legfrissebb ~/.codex/sessions/**/*.jsonl utolsó token_count eseményének rate_limits mezője
 //    (csak olvasás, a fájl végéből; hitelesítő adatot nem nyit meg);
 //  - hőfigyelő: $XDG_RUNTIME_DIR/hofigyelo/state.json.
-// Minden mérő: {pct, resetsAt, ts, ...} vagy {pct: null, why: '...'} (nincs adat), becslés soha.
+// Minden mérő: {pct (elhasznált %), left (megmaradt % = 100 - pct), resetsAt, ts, ...} vagy
+// {pct: null, left: null, why: '...'} (nincs adat), becslés soha.
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
@@ -28,7 +29,7 @@ function readJson(path) {
     }
 }
 
-const noData = why => ({pct: null, why});
+const noData = why => ({pct: null, left: null, why});
 
 // pct + visszaállás érvényessége: lejárt ablak vagy elavult adat = nincs adat
 function window_(pct, resetsAt, ts, extra = {}) {
@@ -39,7 +40,8 @@ function window_(pct, resetsAt, ts, extra = {}) {
         return {...noData('a keret visszaállt, friss adat még nincs'), resetsAt, ts};
     if (!resetsAt && ts && t - ts > CLAUDE_MAX_AGE)
         return {...noData('elavult adat'), ts};
-    return {pct, resetsAt: resetsAt || null, ts: ts || null, ...extra};
+    const left = Math.max(0, Math.min(100, 100 - pct));
+    return {pct, left, resetsAt: resetsAt || null, ts: ts || null, ...extra};
 }
 
 // ---- Claude ---------------------------------------------------------------
