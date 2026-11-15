@@ -187,6 +187,8 @@ def main():
 
     while True:
         cpu = hwmon("k10temp", "Tctl")
+        if cpu is None:          # Intel CPU: coretemp, a teljes tok hőmérséklete
+            cpu = hwmon("coretemp", "Package id 0")
         acpi = hwmon("acpitz")
         gpu = gpu_temp()
         if cpu is not None:
