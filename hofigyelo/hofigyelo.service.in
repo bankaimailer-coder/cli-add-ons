@@ -1,0 +1,11 @@
+[Unit]
+Description=Hőfigyelő: CPU/GPU hőmérséklet, ügynök-figyelmeztetés és terhelés-visszafogás
+After=graphical-session.target
+
+[Service]
+ExecStart=@PYTHON@ -I @SCRIPT@
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

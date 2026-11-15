@@ -52,3 +52,9 @@
 ```
 A cli-add-ons repóban dolgozunk, a MUNKAREND.md szerint. Olvasd el a MUNKAREND.md-t és a docs/atado/2026-11-15-munkamenet-atado.md átadót. Kezdd a „Teendő, sorrendben” 1. pontjával: kérdezd meg, hogyan néznek ki az új keretmérők és a lila CPU-hőmérő a sávban, és mi a döntés a feat/keretmerok ág pusholásáról.
 ```
+
+## Kiegészítés (2026-11-15, este): T01–T03 kész
+- T01, T02 pusholva (`eeb78bf`); a keretfigyelő ezen a gépen fut (`kontextus-keretfigyelo.service`), a `$XDG_RUNTIME_DIR/kontextus-ikon/keretfigyelo.json`-t írja.
+- T03 közös telepítő: `sh telepit.sh` (`--szaraz`, `--csak`, `--kihagy`, `--eltavolitas`; exit 0/1/3). Review: docs/review/T03/r1.md (javítás után elfogadható), r2.md (elfogadva). Ezen a gépen csak szárazon futott.
+- Nyitott (a T03 r2 megjegyzései, nem blokkolók): R2-1 üres bővítménylistánál az eltávolítás hamis „eltávolítva” sort ír (`@as []` vs `[]`); R2-2 a `szinprofil.py eltavolit` valódi hibája is csak figyelmeztetés; R2-3 python3 nélküli eltávolításnál a statusLine csendben marad. R1-7: aktív venvből telepítve a venv pythonja kerül a hőfigyelő egységébe.
+- Teendő: másik gépen klónozás után `sh telepit.sh`, majd ki- és bejelentkezés; ezen a gépen ki- és bejelentkezés, és az új sáv megnézése.

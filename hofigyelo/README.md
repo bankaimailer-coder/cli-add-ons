@@ -32,7 +32,25 @@ A szint a 30 másodperces medián alapján változik, és csak a kilépési küs
 
 A hőmérséklet-előzmények a `~/.local/state/hofigyelo/hofok-ÉÉÉÉ-HH-NN.csv` fájlba kerülnek. A program minden sort azonnal lemezre ír (fsync), így egy hirtelen leállás után is látszik, milyen meleg volt előtte.
 
+## Telepítés
+
+`sh hofigyelo/install.sh` (vagy a repó gyökeréből a közös `sh telepit.sh`). Root nem kell.
+
+- Az egységet a `hofigyelo.service.in` sablonból tölti ki (`ExecStart=<python3> -I <a klón>/hofigyelo/hofigyelo.py`),
+  és a `~/.config/systemd/user/hofigyelo.service` fájlba írja; bekapcsolja és elindítja. Újraindítás csak akkor
+  van, ha az egység változott.
+- A három horgot (PreToolUse/Bash, PostToolUse, UserPromptSubmit; `python3 -I <a klón>/hofigyelo/hofigyelo_horog.py`,
+  5 mp időkorláttal) a `~/.claude/settings.json`-ba írja, mentéssel (`settings.json.backup-<idő>`) és atomikusan;
+  a többi horoghoz nem nyúl, a kettőzött bejegyzést kiveszi.
+- Ha nincs ismert hőérzékelő (k10temp, ACPI-zóna, nvidia-smi), kihagyja (kilépési kód 3);
+  `--erzekelo-nelkul` kapcsolóval figyelmeztetéssel mégis telepít.
+- Ha a meglévő egység vagy horog ugyanerre a fájlra mutat más írásmóddal (szimlinken át), meghagyja; ha egy másik
+  klónra, átírja erre.
+- `--szaraz`: csak kiírja, mit tenne.
+
 ## Kezelés
 
 - **Állapot:** `systemctl --user status hofigyelo` és `cat $XDG_RUNTIME_DIR/hofigyelo/state.json`.
-- **Kikapcsolás:** `systemctl --user disable --now hofigyelo`, és töröld a horgokat a `~/.claude/settings.json`-ból. A beállítások mentése: `settings.json.bak-hofigyelo`.
+- **Kikapcsolás és eltávolítás:** `sh hofigyelo/install.sh --eltavolitas`: leállítja, kikapcsolja és törli az
+  egységet, és kiveszi a hőfigyelő horgait a `~/.claude/settings.json`-ból (mentéssel). A naplót
+  (`~/.local/state/hofigyelo/`) meghagyja.
