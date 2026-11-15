@@ -14,7 +14,7 @@ while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in ''|'#'*) continue ;; esac
     case "$line" in
         *'|'*) name=$(printf '%s' "${line%%|*}" | sed 's/^ *//; s/ *$//')
-               path=${line#*|} ;;
+               path=${line#*|}; path=${path%%|*} ;;   # a 3. oszlop (szín) itt nem kell
         *)     name=""; path=$line ;;
     esac
     path=$(printf '%s' "$path" | sed "s/^ *//; s/ *$//; s|^~|$HOME|")
@@ -35,7 +35,9 @@ TARGET=$(printf '%s' "$ROWS" | zenity --list --title="Claude indító" \
     --hide-column=2 --print-column=2 --width=420 --height=360) || exit 0
 [ -n "$TARGET" ] || exit 0
 
-MODE=$(zenity --list --title="Claude indító" --text="$(printf '%s' "$ROWS" | grep -x -B1 -F "$TARGET" | head -1 | sed "s/&/\&amp;/g")" \
+NAME=$(printf '%s' "$ROWS" | grep -x -B1 -F "$TARGET" | head -1)
+
+MODE=$(zenity --list --title="Claude indító" --text="$(printf '%s' "$NAME" | sed "s/&/\&amp;/g")" \
     --column="Indítás" "Új beszélgetés" "Legutóbbi folytatása" \
     --width=320 --height=220) || exit 0
 
@@ -44,6 +46,10 @@ case "$MODE" in
     *) ARGS="" ;;
 esac
 
+# a repó saját színprofilja (szinprofil.py telepit hozza létre); ha nincs, az alapprofil marad
+set --
+UUID=$(python3 "$DIR/szinprofil.py" uuid "$NAME" 2>/dev/null) && set -- "--tab-with-profile=$UUID"
+
 # a Claude kilépése után a terminál nyitva marad egy sima shellel
-exec ptyxis --new-window -d "$TARGET" -T "Claude: $(basename "$TARGET")" \
+exec ptyxis --new-window "$@" -d "$TARGET" -T "Claude: $(basename "$TARGET")" \
     -- bash -lc "\"$CLAUDE\" $ARGS; exec bash"
