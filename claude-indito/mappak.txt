@@ -15,6 +15,7 @@ DIGITAL ART GALERY | ~/AI PROJECTS/digital-art-galery
 FOUNDRY VTT CAMPAIGN | ~/AI PROJECTS/foundry-vtt-campaign
 VTT | ~/AI PROJECTS/vtt
 GAME DEVELOPMENT | ~/AI PROJECTS/game-development
+HANNA APPLICATIONS | ~/AI PROJECTS/Hanna-Applications
 
 # bfwork gép (~/work)
 CRM REBUILD | ~/work/soborbo_crm_rebuild
