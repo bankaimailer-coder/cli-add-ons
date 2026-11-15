@@ -43,6 +43,10 @@
 3. Ha a munkarend jól működik: push mind a 14 repóban, a saját águkra.
 4. Repónként a MUNKAREND.md végének kitöltése az adott repóban dolgozó munkamenetben.
 5. Az elavult worktree-k eltávolítása a user jóváhagyásával.
+6. Telepítés a többi gépre (user kérése): a mérőeszközök a GitHubon a `feat/meroeszkozok` ágon vannak (074ac97, munkarend nélkül). Javaslat: merge a `main`-be (a user jóváhagyásával), és egy közös telepítő, amely a kontextus-ikont, a claude-indito profiljait és a hőfigyelőt (szolgáltatás + horgok) egyben telepíti.
+
+## Kiegészítés (2026-11-15, később)
+- Push megtörtént: `origin/feat/meroeszkozok` = 074ac97 (hőfigyelő, keretmérők, CPU/GPU-hőmérő, terminálszínek; a munkarend-commit és a docs/ nélkül). A helyi `feat/keretmerok` (munkarenddel) nincs pusholva.
 
 ## Bemásolandó indító prompt
 ```
