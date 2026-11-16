@@ -56,7 +56,10 @@ Sorrend ütközéskor: a user kifejezett szava, utána a repóban rögzített d�
 - Kódra ne szabj mesterséges méretkorlátot. (S34)
 
 ### 2.5 Tesztek
-- A tesztnek el kell tudnia bukni: egy szándékosan hibás változatra legyen piros. (S38, K36)
+- A valódi kódon minden teszt zöld. Hogy a teszt nem üres, azt egy szándékosan elrontott kódváltozat bizonyítja: arra legyen piros, utána az elrontott változat eldobható. (S38, K36)
+  - Rutin feladatnál elég egy kézi próba a fő tesztre.
+  - Kényes feladatnál (pénz, adat, hitelesítés, telepítés) minden új tesztre kell ilyen próba.
+  - Ahol nincs viselkedésváltozás (szöveg, stílus, dokumentáció), ott nem kell.
 - A zöld szükséges, de nem elégséges. A körkörös teszt és a bekötetlen kódra írt teszt nem lefedettség. (S39, K80)
 - A generált tesztek mellé írj kézzel elfogadási próbát. (S40)
 - A gyengített ellenőrzés (lazított assert, kódhoz igazított elvárt érték, törölt vagy kihagyott teszt) mindig hiba. Jelentsd külön tételként. (S56)
