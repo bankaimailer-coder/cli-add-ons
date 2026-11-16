@@ -7,6 +7,17 @@ Túlmelegedés elleni védelem az ASUS Vivobook Pro 15 M6500QC-hez (Ryzen 7 5800
 - `hofigyelo.py`: felhasználói szolgáltatás (`hofigyelo.service`). 5 másodpercenként méri a CPU-t (k10temp Tctl), a laptop ACPI-zónáját és az NVIDIA GPU-t. A GPU-t csak akkor kérdezi le, ha az amúgy is ébren van. Számolja a Puppeteer-Chrome-okat is.
 - `hofigyelo_horog.py`: Claude Code horog (PreToolUse/Bash, PostToolUse, UserPromptSubmit) a `~/.claude/settings.json`-ban.
 
+## Telepítés
+
+    sh ~/projects/cli-extensions/hofigyelo/install.sh
+
+Root nem kell, többször is futtatható. A telepítő megírja és elindítja a felhasználói szolgáltatást
+(`~/.config/systemd/user/hofigyelo.service`, bejelentkezéskor magától indul), és bejegyzi a horgokat a
+`~/.claude/settings.json`-ba (előtte mentést készít). A `--horog-nelkul` kapcsolóval csak a szolgáltatás települ;
+a felső sáv hőmérőihez ennyi elég. AMD processzoron a `k10temp`, Intelen a `coretemp` érzékelőből olvas.
+
+A küszöbök a fenti ASUS géphez készültek; más gépen a `hofigyelo.py` elején a `CPU_TH` és a `GPU_TH` állítható.
+
 ## Szintek
 
 A szint a 30 másodperces medián alapján változik, és csak a kilépési küszöb alatt csökken.
@@ -35,4 +46,4 @@ A hőmérséklet-előzmények a `~/.local/state/hofigyelo/hofok-ÉÉÉÉ-HH-NN.c
 ## Kezelés
 
 - **Állapot:** `systemctl --user status hofigyelo` és `cat $XDG_RUNTIME_DIR/hofigyelo/state.json`.
-- **Kikapcsolás:** `systemctl --user disable --now hofigyelo`, és töröld a horgokat a `~/.claude/settings.json`-ból. A beállítások mentése: `settings.json.bak-hofigyelo`.
+- **Kikapcsolás:** `systemctl --user disable --now hofigyelo`, és töröld a horgokat a `~/.claude/settings.json`-ból. A telepítő mentése: `settings.json.backup-ÉÉÉÉHHNN-ÓÓPPMM`.
