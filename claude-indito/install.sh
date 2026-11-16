@@ -32,3 +32,11 @@ case "$FAV" in
     *) gsettings set org.gnome.shell favorite-apps "$(printf '%s' "$FAV" | sed "s/]\$/, '$APP_ID']/")"
        echo "  kész: kitűzve a dokkba" ;;
 esac
+
+# repónkénti színprofilok a Ptyxisben (mappak.txt 3. oszlopa); eltávolítás:
+#   python3 szinprofil.py eltavolit
+if command -v python3 >/dev/null; then
+    python3 "$DIR/szinprofil.py" telepit
+else
+    echo "  kihagyva: színprofilok (nincs python3)"
+fi
