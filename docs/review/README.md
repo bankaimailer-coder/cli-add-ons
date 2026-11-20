@@ -6,7 +6,7 @@ Ide kerül minden review-kör kimenete, feladatonként külön mappában, hogy a
 - A reviewer csak olvas, nem szerkeszt kódot. (S52) A minimumot kapja: a kérdést, a diffet, a feladatlapot és a kapu jelentését. Az író javaslatát és ítéletét nem kapja meg. (K55, K56)
 - A reviewer nézze a hibautakat (rossz bemenet, ismételt és egyidejű hívás, félbeszakadás), a hatókört és a betű szerinti megfelelést: van teszt, de a neve szerinti okból bukna-e. (S53, S55)
 - Javítókörben a reviewer csak a javító diffet nézi. A találatnál többet változtató javítás is találat. (S61)
-- Legfeljebb két javítókör jöhet, utána a user dönt. (K85)
+- Ha két javítókör után ugyanaz a hiba áll fenn, a reviewer és a kódoló ne folytassa ugyanazzal a megközelítéssel: a user dönt. Ha a körök haladnak, folytatható. (K85)
 - Döntésütközésben a reviewer nem dönt, az a useré. (S59)
 
 ## Mi a találat
