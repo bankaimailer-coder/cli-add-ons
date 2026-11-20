@@ -98,12 +98,14 @@ Sorrend ütközéskor: a user kifejezett szava, utána a repóban rögzített d�
 - Szelet indítása előtt a vezérlő összeveti a feladatot a `docs/dontesek.md` érintett soraival (pl. áthelyezett vagy felülírt tétel), és ezt egy sorban rögzíti az indításkor. (gyorsítás, 2026-11-19)
 - A még meg nem írt feladatlapokat a vezérlő a kódolással párhuzamosan írhatja, a kérdéseket csomagban adja a usernek; a kódolás nem vár rájuk, amíg van jóváhagyott szelet. (gyorsítás, 2026-11-19)
 - Ami nem fér egy kontextusba, ott a feladatot bontsd, ne a kódot. (S15)
+- Minden munkamenet kontextusát 250 ezer tokenre tervezd, és 300 ezernél állj meg; ez a segédügynökökre is érvényes. A méretet előre becsüld meg, és ha a feladat nem fér bele, bontsd. (a user döntése, 2026-11-20)
 - Ha a munka folytatódik, a munkamenet végén írj átadót bemásolható indító prompttal. (S76, S85)
 - A kontextus végén ne kezdj új részlépést. (S81)
 - A hosszú kimenetet írd fájlba, és csak a hibás részt olvasd be. (S33)
 
 ### 2.10 Ügynökök
 - Egy író legyen, mellette csak olvasó segédek. (S24, S90)
+- Egy feladatra összesen legfeljebb 5 segédügynök indulhat, és a segéd nem indít további segédet. Ami így nem fér bele, „nem ellenőrzött” jelöléssel marad. (a user döntése, 2026-11-20)
 - Párhuzamos író csak külön ágon és nem átfedő fájlokon dolgozhat. (S31)
 - Futószalag: amíg a reviewer egy szeletet néz, a következő szelet kódolása indulhat, ha a két szelet fájljai nem fednek át. A merge sorrendje a szeletek sorrendje; egy kapu és egy review-kör sem marad el. (gyorsítás, 2026-11-19)
 - Az ismétlődő vezérlői lépés (munkafa létrehozása, a review-prompt összerakása, a szándékosan elrontott változatok futtatása) szkriptből fusson, az `eszkozok/` alól. (gyorsítás, 2026-11-19)
